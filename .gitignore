@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-electron/
+.DS_Store
+
+# iCloud conflict copies — this tree sits under a synced Desktop.
+* [0-9].*

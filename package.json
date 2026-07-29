@@ -1,0 +1,29 @@
+{
+  "name": "socket",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A desktop studio for building audio plugins out of modular blocks.",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && tsc -p electron/tsconfig.json",
+    "start": "pnpm build && electron .",
+    "typecheck": "tsc --noEmit",
+    "sync:tokens": "node --experimental-strip-types scripts/sync-tokens.mts",
+    "verify": "pnpm typecheck && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.0.0",
+    "typescript": "^5",
+    "vite": "^6.0.7"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
