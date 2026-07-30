@@ -18,22 +18,49 @@ export function Screen() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
-
-    const cols = Math.max(12, Math.floor(w / 7));
-    const rows = Math.max(5, Math.floor(h / 7));
-    const cw = w / cols;
-    const ch = h / rows;
+    // Re-measured on every resize, not once at mount.
+    //
+    // Sizing the backing store a single time means widening the panel stretches
+    // stale pixels — the cells smear and the grid stops being whole cells, which
+    // is the one property the whole grammar depends on. A ResizeObserver rebuilds
+    // the grid instead, so the cell size stays constant and the column count
+    // changes, which is what resizing a pixel display should do.
+    let w = 0;
+    let h = 0;
+    let cols = 0;
+    let rows = 0;
+    let cw = 0;
+    let ch = 0;
+    let px = 0;
+    let bands: number[] = [];
+    let peaks: number[] = [];
     const gap = 0.2;
-    const px = Math.min(cw, ch) * (1 - gap);
 
-    const bands = new Array(cols).fill(0);
-    const peaks = new Array(cols).fill(0);
+    const measure = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      if (w <= 0 || h <= 0) return;
+
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Constant cell size: more room means more cells, never bigger ones.
+      const cell = 7;
+      cols = Math.max(12, Math.floor(w / cell));
+      rows = Math.max(5, Math.floor(h / cell));
+      cw = w / cols;
+      ch = h / rows;
+      px = Math.min(cw, ch) * (1 - gap);
+      bands = new Array(cols).fill(0);
+      peaks = new Array(cols).fill(0);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(canvas);
+
     let raf = 0;
     let t = 0;
 
@@ -41,6 +68,10 @@ export function Screen() {
     const read = (n: string) => styles.getPropertyValue(n).trim();
 
     const draw = () => {
+      if (cols === 0) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
       t += 0.045;
       const centre = Math.floor(cols / 2);
       const mid = Math.floor(rows / 2);
@@ -96,7 +127,10 @@ export function Screen() {
     };
 
     draw();
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   return <canvas ref={ref} className="screen" />;

@@ -214,3 +214,109 @@ body {
 }
 .param input[type="range"] { flex: 1; accent-color: var(--accent-blue); }
 .param-value { font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem; }
+
+/* ── The plugin window ──────────────────────────────────────────────────
+   Scaled to fit the stage, with transform-origin at the top-left so the
+   scaler box and the scaled content agree on where the thing starts. */
+.frame-scaler { position: relative; flex: none; }
+.frame {
+  position: absolute; top: 0; left: 0;
+  transform-origin: top left;
+  display: flex; flex-direction: column;
+  background: var(--background);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Chrome the instruments actually have. None of it functional — a layout
+   without its surroundings is not a layout you can judge. */
+.frame-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 14px; height: 42px; flex: none;
+  border-bottom: 1px solid var(--hairline);
+}
+.frame-word { font-size: 15px; font-weight: 300; letter-spacing: 0.06em; }
+.frame-preset {
+  font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+  color: var(--muted-foreground);
+  border: 1px solid var(--card-border); border-radius: 5px;
+  padding: 4px 40px;
+}
+.frame-tabs { display: flex; gap: 3px; }
+.frame-tab {
+  font-family: ui-monospace, Menlo, monospace; font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 5px 14px; border-radius: 4px; color: var(--muted-foreground);
+  background: var(--card-alpha);
+}
+.frame-tab.on { background: var(--plugin-accent); color: var(--primary-foreground); }
+.frame-meter {
+  margin-left: auto; width: 120px; height: 5px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--plugin-accent) 40%, var(--card) 40%);
+}
+
+.frame-body {
+  flex: 1; min-height: 0; overflow: auto;
+  display: grid; grid-template-columns: repeat(12, 1fr);
+  gap: 8px; align-content: start; padding: 12px;
+}
+.frame-foot {
+  flex: none; height: 22px; display: flex; align-items: center;
+  padding: 0 14px; border-top: 1px solid var(--hairline);
+  font-family: ui-monospace, Menlo, monospace; font-size: 9px;
+  letter-spacing: 0.1em; color: var(--muted-foreground);
+}
+
+.stage { display: flex; align-items: center; justify-content: center; }
+
+/* Panels wear the plugin's accent, not the app's. */
+.panel { position: relative; }
+.panel .panel-tab { background: var(--plugin-accent); }
+.panel-selected { border-color: var(--plugin-accent); }
+.panel[draggable="true"] { cursor: grab; }
+
+/* Resize by the edge. Setting width from a row of buttons describes a
+   layout; dragging the edge is laying one out. */
+.panel-grip {
+  position: absolute; top: 0; right: 0; width: 8px; height: 100%;
+  cursor: ew-resize; border-radius: 0 var(--radius-card) var(--radius-card) 0;
+}
+.panel-grip:hover { background: var(--plugin-accent); opacity: 0.35; }
+
+.name-input {
+  width: 100%; margin-top: 0.6rem; padding: 0.4rem 0.55rem;
+  background: var(--card); color: var(--foreground);
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+  font: inherit; font-size: 0.85rem;
+}
+.name-input:focus { outline: none; border-color: var(--accent-blue); }
+
+.size-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.55rem; }
+.size-btn {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  text-align: left; cursor: pointer;
+  background: var(--card-alpha); color: inherit;
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+  padding: 0.4rem 0.55rem; font: inherit; font-size: 0.8rem;
+}
+.size-btn.on { border-color: var(--accent-blue); background: var(--card); }
+.size-dim {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.6rem;
+  color: var(--muted-foreground);
+}
+
+.accent-row { display: flex; gap: 0.4rem; margin-top: 0.55rem; }
+.accent-dot {
+  width: 20px; height: 20px; border-radius: 999px; cursor: pointer;
+  border: 2px solid transparent; padding: 0;
+}
+.accent-dot.on { border-color: var(--foreground); }
+
+.span-slider { width: 100%; margin-top: 0.5rem; accent-color: var(--accent-blue); }
+.param-choice {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem;
+  background: var(--card); color: var(--foreground); cursor: pointer;
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+  padding: 0.25rem 0.5rem;
+}
