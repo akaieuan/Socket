@@ -148,7 +148,7 @@ export const CATALOG: BlockDef[] = [
     // The grid wraps to eight by two now, so a narrow sequencer is a shape the
     // block can actually take.
     type: "seq", name: "Sequencer", group: "Modulate", from: "bleep · Sequencer.cpp",
-    ports: mod, defaultSpan: 8, minSpan: 3, face: "steps",
+    ports: mod, defaultSpan: 10, minSpan: 4, face: "steps",
     params: [
       knob("Tempo", 0.4),
       choice("Rate", ["1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"], 3),
@@ -315,7 +315,7 @@ const FACE_ROWS: Record<string, number> = {
   screen: 5, scope: 4, spectrum: 4, curve: 4, meter: 4,
   // The grid plus its lane and pattern rows; and the patch bay needs room for
   // six jacks a side with cables between them, which a matrix of dots did not.
-  matrix: 9, steps: 7, xy: 6, keys: 4, pads: 5, readout: 4,
+  matrix: 9, steps: 8, xy: 6, keys: 4, pads: 5, readout: 4,
 };
 
 /**

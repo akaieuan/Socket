@@ -22,7 +22,7 @@ import { FACES } from "../design/faces";
  */
 export function Panel({
   block, selected, gridWidth, rowStep, wired, dragging,
-  onSelect, onParam, onFace, onBox, onRemove, onDragStart, onDragEnd, onDragOver,
+  onSelect, onParam, onParamIndex, onFace, onBox, onRemove, onDragStart, onDragEnd, onDragOver,
 }: {
   block: BlockInstance;
   selected: boolean;
@@ -32,6 +32,8 @@ export function Panel({
   dragging: boolean;
   onSelect: () => void;
   onParam: (id: string, v: number) => void;
+  /** By catalogue index, for faces that own one of their own parameters. */
+  onParamIndex: (index: number, v: number) => void;
   onFace: (values: number[]) => void;
   onBox: (span: number, rows: number) => void;
   onRemove: () => void;
@@ -97,7 +99,7 @@ export function Panel({
           rather than opening a hole underneath it. */}
       {Face && (
         <div className="panel-face">
-          <Face block={block} onFace={onFace} />
+          <Face block={block} onFace={onFace} onParam={(i, v) => onParamIndex(i, v)} />
         </div>
       )}
 

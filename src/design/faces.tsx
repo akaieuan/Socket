@@ -18,6 +18,9 @@ import { useAudioContext, useProjectContext, modSources, modTargets } from "@/au
 export type FaceProps = {
   block: BlockInstance;
   onFace: (values: number[]) => void;
+  /** By catalogue index. The sequencer's PLAY button is the Run parameter —
+      a transport button and a knob for the same thing is one too many. */
+  onParam: (index: number, value: number) => void;
 };
 
 /* ── shared plumbing ──────────────────────────────────────────────────── */
@@ -485,56 +488,61 @@ function Matrix({ block, onFace }: FaceProps) {
 
 /* ── the step grid ─────────────────────────────────────────────────────── */
 
-const STEPS = 16;
+/** Four pages of sixteen, like bleep's. */
+const STEPS = 64;
+const PER_PAGE = 16;
+const PAGES = STEPS / PER_PAGE;
 /** Per step: active, note, velocity, gate. One flat array on the instance. */
 const STRIDE = 4;
 
-/** Which of the four a row edits. Drag anywhere in the column to set it. */
 const LANES = [
-  { key: "vel" as const, label: "VEL" },
-  { key: "note" as const, label: "NOTE" },
-  { key: "gate" as const, label: "GATE" },
+  { key: "vel" as const, label: "VEL", field: 2 },
+  { key: "note" as const, label: "NOTE", field: 1 },
+  { key: "gate" as const, label: "GATE", field: 3 },
 ];
 
-const PATTERNS = ["1/4", "OFF", "1/8", "E3", "E5", "E7", "RND", "CLR"];
+const GENERATORS = ["1/4", "OFF", "1/8", "E3", "E5", "E7", "RND", "CLR"];
+
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteName = (n: number) => `${NOTE_NAMES[n % 12]}${Math.floor(n / 12) - 1}`;
 
 /**
  * A step sequencer, after bleep's.
  *
- * bleep's is the best-thought-out thing in the three plugins, and the shape it
- * gets right is that a step is not a flag. It carries a note, a velocity and a
- * gate length, and that is the whole difference between a sequencer and a
- * metronome — a pattern of identical hits is what a boolean gives you, and it
- * is why most built-in sequencers sound like a demo.
+ * Pads in eight by two, not sixteen thin bars. That is bleep's shape and it is
+ * the right one: a pad is big enough to carry its own step number and to show
+ * its velocity as fill, and two rows of eight is how anyone who has used a drum
+ * machine already counts a bar. Sixteen slivers is a waveform display that
+ * happens to be clickable.
  *
- * Three lanes, one at a time. Sixteen steps by four values will not fit on a
- * panel at once and trying makes a spreadsheet; a lane switch costs one click
- * and keeps each view a shape you can read across.
+ * Sixty-four steps across four pages. Sixteen was the first attempt and it was
+ * the wrong trim — four bars is where a pattern stops being a loop, and pattern
+ * length runs across the whole range so an odd length crosses pages by itself.
  *
- * The playhead comes from the audio thread, not from a timer. The old grid ran
- * its own setInterval, which meant the line you watched and the note you heard
- * were two different clocks — visibly two, within a bar.
+ * The playhead comes from the audio thread. The old grid ran its own
+ * setInterval, which meant the line you watched and the note you heard were two
+ * different clocks — visibly two, within a bar.
  */
-function Steps({ block, onFace }: FaceProps) {
+function Steps({ block, onFace, onParam }: FaceProps) {
   const sound = useAudioContext();
   const [lane, setLane] = useState<(typeof LANES)[number]["key"]>("vel");
+  const [page, setPage] = useState(0);
 
   const values = useFaceState(block, STEPS * STRIDE, (i) => {
     const field = i % STRIDE;
     const step = (i / STRIDE) | 0;
-    if (field === 0) return step % 4 === 0 ? 1 : 0;   // active
-    if (field === 1) return 60;                        // note
-    if (field === 2) return 0.9;                       // velocity
-    return 0.5;                                        // gate
+    if (field === 0) return step % 4 === 0 ? 1 : 0;
+    if (field === 1) return 60;
+    if (field === 2) return 0.9;
+    return 0.5;
   });
 
   const read = (step: number, field: number) => values[step * STRIDE + field]!;
+  const running = (block.params.find((p) => p.id.startsWith("run-"))?.value ?? 0) > 0.5;
+  const length = Math.round(1 + (block.params.find((p) => p.id.startsWith("length-"))?.value ?? 1) * (STEPS - 1));
 
-  /** Write locally and to the engine in one move — they cannot disagree. */
-  const write = (step: number, changes: Partial<Record<number, number>>) => {
-    const next = values.slice();
-    for (const [field, v] of Object.entries(changes)) next[step * STRIDE + Number(field)] = v!;
-    onFace(next);
+  /** Local and engine in one move — they cannot disagree. */
+  const push = (next: number[], step: number) => {
     sound.setStep(block.uid, step, {
       active: next[step * STRIDE]! > 0.5,
       note: Math.round(next[step * STRIDE + 1]!),
@@ -543,16 +551,15 @@ function Steps({ block, onFace }: FaceProps) {
     });
   };
 
-  // Everything the engine does not already know: on mount, and whenever the
-  // pattern is replaced wholesale by a generator.
+  const write = (step: number, changes: Record<number, number>) => {
+    const next = values.slice();
+    for (const [field, v] of Object.entries(changes)) next[step * STRIDE + Number(field)] = v;
+    onFace(next);
+    push(next, step);
+  };
+
   useEffect(() => {
-    for (let i = 0; i < STEPS; i++)
-      sound.setStep(block.uid, i, {
-        active: read(i, 0) > 0.5,
-        note: Math.round(read(i, 1)),
-        velocity: read(i, 2),
-        gate: read(i, 3),
-      });
+    for (let i = 0; i < STEPS; i++) push(values, i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.join(","), sound.running]);
 
@@ -560,82 +567,102 @@ function Steps({ block, onFace }: FaceProps) {
     const next = values.slice();
     const set = (i: number, on: boolean) => { next[i * STRIDE] = on ? 1 : 0; };
     for (let i = 0; i < STEPS; i++) set(i, false);
+    // Across all sixty-four, as bleep's do. A Euclidean five that only filled
+    // the page you were looking at would be a different rhythm on every page.
     const euclid = (k: number) => { for (let i = 0; i < k; i++) set(((i * STEPS) / k) | 0, true); };
 
-    // The same eight bleep offers. The Euclidean ones are the reason its grid
-    // is pleasant: a blank sixteen is a chore, and those produce patterns
-    // nobody arrives at by clicking.
     if (which === 0) for (let i = 0; i < STEPS; i += 4) set(i, true);
     if (which === 1) for (let i = 2; i < STEPS; i += 4) set(i, true);
     if (which === 2) for (let i = 0; i < STEPS; i += 2) set(i, true);
-    if (which === 3) euclid(3);
-    if (which === 4) euclid(5);
-    if (which === 5) euclid(7);
+    if (which === 3) euclid(12);
+    if (which === 4) euclid(20);
+    if (which === 5) euclid(28);
     if (which === 6) for (let i = 0; i < STEPS; i++) set(i, Math.random() > 0.55);
     onFace(next);
   };
 
-  /** Drag sets the lane's value; the top of the column is 1. */
+  /** Drag up the pad to raise the active lane's value. */
   const paint = (e: React.PointerEvent, step: number) => {
     const box = e.currentTarget.getBoundingClientRect();
     const t = Math.max(0, Math.min(1, 1 - (e.clientY - box.top) / box.height));
     if (lane === "vel") write(step, { 0: 1, 2: Math.max(0.05, t) });
-    if (lane === "gate") write(step, { 3: Math.max(0.02, t) });
-    // Two octaves of travel, snapped: a continuous pitch lane is unplayable.
-    if (lane === "note") write(step, { 1: Math.round(36 + t * 48) });
+    if (lane === "gate") write(step, { 0: 1, 3: Math.max(0.02, t) });
+    if (lane === "note") write(step, { 0: 1, 1: Math.round(36 + t * 48) });
   };
 
-  const height = (step: number) => {
-    if (lane === "vel") return read(step, 2);
-    if (lane === "gate") return read(step, 3);
-    return (read(step, 1) - 36) / 48;
+  const readout = (step: number) => {
+    if (lane === "note") return noteName(Math.round(read(step, 1)));
+    return `${Math.round(read(step, lane === "vel" ? 2 : 3) * 100)}`;
   };
 
   return (
-    <div className="steps-face">
-      <div className="steps">
-        {Array.from({ length: STEPS }, (_, i) => {
-          const on = read(i, 0) > 0.5;
+    <div className="seq">
+      <div className="seq-transport">
+        <button
+          className={`seq-play${running ? " on" : ""}`}
+          onPointerDown={(e) => { e.stopPropagation(); onParam(5, running ? 0 : 1); }}
+        >
+          {running ? "STOP" : "PLAY"}
+        </button>
+        {GENERATORS.map((g, i) => (
+          <button
+            key={g}
+            className="seq-gen"
+            onPointerDown={(e) => { e.stopPropagation(); generate(i); }}
+            title={`Pattern: ${g}`}
+          >
+            {g}
+          </button>
+        ))}
+
+        <span className="seq-gap" />
+
+        <button className="seq-page-nav" onPointerDown={(e) => { e.stopPropagation(); setPage((p) => (p + PAGES - 1) % PAGES); }}>‹</button>
+        <span className="seq-page">P{page + 1}/{PAGES}</span>
+        <button className="seq-page-nav" onPointerDown={(e) => { e.stopPropagation(); setPage((p) => (p + 1) % PAGES); }}>›</button>
+        <span className="seq-len">LEN {length}</span>
+      </div>
+
+      <div className="seq-grid">
+        {Array.from({ length: PER_PAGE }, (_, cell) => {
+          const step = page * PER_PAGE + cell;
+          const on = read(step, 0) > 0.5;
+          const level = read(step, 2);
           return (
             <button
-              key={i}
-              className={`step${sound.status.step === i ? " head" : ""}${on ? " on" : ""}`}
+              key={step}
+              className={`seq-pad${on ? " on" : ""}${sound.status.step === step ? " head" : ""}${step >= length ? " past" : ""}`}
+              // Velocity as fill, the way bleep does it. A pad you can read the
+              // dynamics of across a whole bar without clicking anything.
+              style={on ? { ["--fill" as string]: level.toFixed(3) } : undefined}
               onPointerDown={(e) => {
                 e.stopPropagation();
-                // A click on the active lane toggles; a drag sets the value.
-                if (lane === "vel" && on) write(i, { 0: 0 });
-                else paint(e, i);
+                if (lane === "vel" && on) write(step, { 0: 0 });
+                else paint(e, step);
               }}
-              onPointerEnter={(e) => e.buttons === 1 && paint(e, i)}
-              aria-label={`Step ${i + 1}`}
+              onPointerEnter={(e) => e.buttons === 1 && paint(e, step)}
+              aria-label={`Step ${step + 1}`}
             >
-              <span className="step-fill" style={{ height: `${height(i) * 100}%` }} />
+              {/* Every fourth, so you can count a bar without counting. */}
+              {step % 4 === 0 && <span className="seq-num">{step + 1}</span>}
+              {on && <span className="seq-val">{readout(step)}</span>}
             </button>
           );
         })}
       </div>
 
-      <div className="steps-tools">
+      <div className="seq-lanes">
         {LANES.map((l) => (
           <button
             key={l.key}
-            className={`step-lane${lane === l.key ? " on" : ""}`}
+            className={`seq-lane${lane === l.key ? " on" : ""}`}
             onPointerDown={(e) => { e.stopPropagation(); setLane(l.key); }}
           >
             {l.label}
           </button>
         ))}
-        <span className="steps-gap" />
-        {PATTERNS.map((p, i) => (
-          <button
-            key={p}
-            className="step-gen"
-            onPointerDown={(e) => { e.stopPropagation(); generate(i); }}
-            title={`Pattern: ${p}`}
-          >
-            {p}
-          </button>
-        ))}
+        <span className="seq-gap" />
+        <span className="seq-hint">drag a pad to set {lane}</span>
       </div>
     </div>
   );

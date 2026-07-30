@@ -455,50 +455,72 @@ button { font: inherit; color: inherit; }
 .patch-dragging { pointer-events: none; opacity: 0.7; stroke-dasharray: 4 3; }
 
 /* ── the step grid ─────────────────────────────────────────────────────
-   A step is not a flag: it carries a note, a velocity and a gate, which is
-   the difference between a sequencer and a metronome. Three lanes, one at a
-   time — sixteen by four will not fit on a panel and trying makes a
-   spreadsheet. */
-.steps-face { display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 0; }
-/* Sixteen across when there is room, eight by two when there is not. Below
-   about 340px each of sixteen steps is under twenty pixels, which is a target
-   you miss; wrapped, the same panel gives thirty-two. The grid keeps
-   step order across the wrap, so the playhead still runs left to right and
-   drops to the next row. */
-.steps {
-  display: grid; grid-template-columns: repeat(16, minmax(0, 1fr));
-  gap: 2px; width: 100%; flex: 1; min-height: clamp(30px, 5cqi, 64px);
-}
-@container (max-width: 340px) {
-  .steps { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  /* Two rows need twice the height or each one is a sliver. */
-  .steps-face { min-height: 62px; }
-}
-/* The bar line every four steps, which is how you count a pattern without
-   counting it. */
-.steps .step:nth-child(4n + 1) { border-left-color: var(--card-border-hover); }
-.steps .step {
-  position: relative; flex: 1; padding: 0; cursor: ns-resize;
-  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 2px;
-  overflow: hidden;
-}
-/* An inactive step still shows its value, dimmed — so turning one on does not
-   feel like it appeared from nowhere. */
-.steps .step .step-fill { opacity: 0.22; }
-.steps .step.on .step-fill { opacity: 1; }
-.steps .step.head { border-color: var(--plugin-accent); box-shadow: 0 0 0 1px var(--plugin-accent); }
-.step-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--plugin-accent); }
+   Pads in eight by two, not sixteen thin bars. That is bleep's shape and it
+   is the right one: a pad is big enough to carry its own step number and to
+   show its velocity as fill, and two rows of eight is how anyone who has
+   used a drum machine already counts a bar. */
+.seq { display: flex; flex-direction: column; gap: 4px; width: 100%; min-height: 0; }
 
-.steps-tools { display: flex; align-items: center; gap: 2px; flex: none; }
-.steps-gap { flex: 1; }
-.step-lane, .step-gen {
-  font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.95cqi, 9px);
-  letter-spacing: 0.06em; cursor: pointer; padding: 2px 4px;
+.seq-transport, .seq-lanes { display: flex; align-items: center; gap: 2px; flex: none; }
+.seq-gap { flex: 1; }
+
+.seq-play, .seq-gen, .seq-lane, .seq-page-nav {
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.95cqi, 10px);
+  letter-spacing: 0.06em; cursor: pointer; padding: 2px 5px;
   background: var(--card-alpha); color: var(--muted-foreground);
   border: 1px solid var(--card-border); border-radius: 3px;
 }
-.step-lane.on { background: var(--plugin-accent); color: var(--primary-foreground); border-color: var(--plugin-accent); }
-.step-gen:hover { color: var(--foreground); border-color: var(--card-border-hover); }
+.seq-play { min-width: 38px; }
+.seq-play.on { background: var(--accent-green); color: var(--primary-foreground); border-color: var(--accent-green); }
+.seq-lane.on { background: var(--plugin-accent); color: var(--primary-foreground); border-color: var(--plugin-accent); }
+.seq-gen:hover, .seq-page-nav:hover { color: var(--foreground); border-color: var(--card-border-hover); }
+
+.seq-page, .seq-len, .seq-hint {
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.95cqi, 10px);
+  color: var(--muted-foreground); padding: 0 3px; white-space: nowrap;
+}
+.seq-hint { opacity: 0.6; }
+
+/* Always eight by two. bleep shows a sixteen-step page that way at every
+   width, and it is right: a pad wider than it is tall reads as a bar of music,
+   and two rows of eight is how anyone who has used a drum machine already
+   counts one. Sixteen across turns each pad portrait, which reads as a level
+   meter. The rows are capped so a tall panel gives the pads breathing room
+   rather than turning them into columns. */
+.seq-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 3px; flex: 1; min-height: clamp(34px, 6cqi, 76px); max-height: 96px;
+}
+
+.seq-pad {
+  position: relative; padding: 0; cursor: ns-resize; overflow: hidden;
+  background: var(--mark-panel);
+  border: 1px solid var(--card-border); border-radius: 3px;
+}
+/* Velocity as fill. A pad you can read the dynamics of across a whole bar
+   without clicking anything, which is what makes bleep's grid legible. */
+.seq-pad.on {
+  background: color-mix(in oklch, var(--plugin-accent) calc(var(--fill, 1) * 78%), var(--mark-screen));
+  border-color: transparent;
+}
+.seq-pad.head { box-shadow: inset 0 0 0 2px var(--foreground); }
+/* Past the pattern length: still editable, visibly not playing. */
+.seq-pad.past { opacity: 0.35; }
+.seq-pad:nth-child(4n + 1) { border-left: 1px solid var(--card-border-hover); }
+
+.seq-num {
+  position: absolute; top: 1px; left: 3px;
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(6px, 0.85cqi, 9px);
+  color: var(--muted-foreground); pointer-events: none;
+}
+.seq-pad.on .seq-num { color: var(--primary-foreground); opacity: 0.75; }
+.seq-val {
+  position: absolute; inset: auto 0 2px 0; text-align: center;
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(6px, 0.9cqi, 10px);
+  color: var(--primary-foreground); opacity: 0.85; pointer-events: none;
+}
 
 .xy {
   position: relative; width: 100%; min-height: clamp(56px, 11cqi, 120px); cursor: crosshair;

@@ -69,6 +69,10 @@ export function LayoutView({ store, dragType, onDropBlock }: {
                preset saves; the engine needs it inside the same frame or the
                knob moves before the sound does. */
             onParam={(id, v) => { store.setParam(b.uid, id, v); sound.setParam(b.uid, id, v); }}
+            onParamIndex={(i, v) => {
+              const id = b.params[i]?.id;
+              if (id) { store.setParam(b.uid, id, v); sound.setParam(b.uid, id, v); }
+            }}
             onFace={(v) => store.setFace(b.uid, v)}
             onBox={(span, rows) => store.setBox(b.uid, span, rows)}
             onRemove={() => { store.removeBlock(b.uid); if (selected === b.uid) store.setSelected(null); }}
