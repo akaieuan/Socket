@@ -60,45 +60,142 @@ body {
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
 /* Mono for structure, sans for prose — the house rule. */
 .label {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+  margin: 0;
 }
 
 .app { display: flex; flex-direction: column; height: 100vh; }
 
 /* Depth is a hairline, never a shadow. */
 .chrome {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
+  display: flex; align-items: baseline; gap: 1rem;
+  padding: 0.9rem 1.25rem 0.9rem 5.5rem;
   border-bottom: 1px solid var(--hairline);
   -webkit-app-region: drag;
-  padding-left: 5.5rem;
+  flex: none;
+}
+.wordmark { font-size: 1rem; font-weight: 300; letter-spacing: 0.02em; }
+.chrome-spacer { flex: 1; }
+
+.workspace { flex: 1; display: grid; grid-template-columns: 210px 1fr 230px; min-height: 0; }
+
+.rail {
+  border-right: 1px solid var(--hairline);
+  padding: 1rem;
+  overflow: auto;
+  -webkit-app-region: no-drag;
+}
+.rail-right { border-right: none; border-left: 1px solid var(--hairline); }
+
+.palette { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.75rem; }
+.palette-item {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  text-align: left; cursor: grab;
+  background: var(--card-alpha);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.6rem;
+  color: inherit; font: inherit;
+}
+.palette-item:hover { border-color: var(--card-border-hover); background: var(--card); }
+.palette-item:active { cursor: grabbing; }
+.palette-name { font-size: 0.8rem; }
+.palette-from {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.6rem; color: var(--muted-foreground);
 }
 
-.wordmark { font-size: 1.05rem; font-weight: 300; letter-spacing: 0.02em; }
+.stage { padding: 1.25rem; overflow: auto; }
+.stage-label { margin-bottom: 0.75rem; }
 
-main { flex: 1; overflow: auto; padding: 1.5rem; }
+/* The plugin face: a grid of panels, the way the instruments lay out. */
+.face {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0.6rem;
+  align-content: start;
+  min-height: 200px;
+}
+.empty {
+  grid-column: span 12;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  border: 1px dashed var(--card-border);
+  border-radius: var(--radius-card);
+  padding: 2.5rem; text-align: center;
+}
 
-.card {
+.panel {
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card);
   background: var(--card-alpha);
-  padding: 1rem 1.15rem;
+  padding: 0.55rem 0.7rem 0.8rem;
+  min-width: 0;
+}
+.panel-selected { border-color: var(--accent-blue); }
+
+.panel-head { display: flex; align-items: center; gap: 0.4rem; }
+/* One tinted mark, the way the instruments label a module. */
+.panel-tab { width: 3px; height: 11px; background: var(--accent-blue); border-radius: 1px; }
+.panel-remove {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--muted-foreground); font-size: 0.95rem; line-height: 1; padding: 0 2px;
+}
+.panel-remove:hover { color: var(--foreground); }
+
+.panel-body {
+  display: flex; flex-wrap: wrap; gap: 0.7rem;
+  margin-top: 0.7rem; align-items: flex-start;
 }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.knob { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.knob-label {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted-foreground);
+}
 
-.dot { width: 6px; height: 6px; border-radius: 999px; display: inline-block; }
-`,
+.choice { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.choice-box {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  min-width: 54px; text-align: center;
+}
+
+.screen { width: 100%; height: 62px; display: block; }
+
+.hint { font-size: 0.75rem; color: var(--muted-foreground); margin: 0.5rem 0 0; line-height: 1.5; }
+.section { margin-top: 1.25rem; }
+
+.span-row { display: flex; gap: 0.25rem; margin-top: 0.5rem; }
+.span-btn {
+  flex: 1; padding: 0.3rem 0; cursor: pointer;
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.65rem;
+  background: var(--card-alpha); color: var(--muted-foreground);
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+}
+.span-btn.on { background: var(--accent-blue); color: var(--primary-foreground); border-color: var(--accent-blue); }
+
+.param { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.55rem; }
+.param-name {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem;
+  color: var(--muted-foreground); width: 46px; flex: none;
+}
+.param input[type="range"] { flex: 1; accent-color: var(--accent-blue); }
+.param-value { font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem; }
+`
 );
 
 console.log(`✓ ${path.relative(ROOT, OUT)}`);
