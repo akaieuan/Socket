@@ -401,40 +401,100 @@ button { font: inherit; color: inherit; }
   background: var(--foreground); border-radius: 2px;
 }
 
-/* The patch bay. Rows modulate, columns are modulated, a cell is a cable.
-   The jacks are a fixed square centred in a fluid column: let them stretch and
-   six wide rectangles read as a spreadsheet, which is the opposite of what a
-   patch bay is for. The column stays fluid so the labels have room. */
-.patchbay { display: grid; gap: 3px 2px; align-content: center; align-items: center; width: 100%; }
-.patch-col, .patch-row {
+/* ── the patch bay ─────────────────────────────────────────────────────
+   Jacks down each side and a cable between them. It was a matrix of dots,
+   which is a fine editor and a poor instrument: a filled cell six rows from
+   its label reads as a value in a spreadsheet, not as a route. The whole
+   point of a patch bay is that the routing is the thing you can see. */
+.patchbay { position: relative; display: flex; width: 100%; min-height: 78px; }
+.patch-side {
+  display: flex; flex-direction: column; justify-content: space-around;
+  z-index: 2; flex: none;
+}
+.patch-src { align-items: flex-start; }
+.patch-dst { align-items: flex-end; margin-left: auto; }
+
+.patch-jack {
+  display: flex; align-items: center; gap: 4px; padding: 0; cursor: grab;
+  background: none; border: none; color: var(--muted-foreground);
+}
+.patch-jack:active { cursor: grabbing; }
+.patch-label {
   font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 1cqi, 10px);
   letter-spacing: 0.08em; color: var(--muted-foreground);
 }
-.patch-col { text-align: center; padding-bottom: 2px; }
-.patch-row { text-align: right; padding-right: 5px; }
-.patch-cell {
-  width: clamp(13px, 2.2cqi, 22px); height: clamp(13px, 2.2cqi, 22px); justify-self: center; padding: 0; cursor: pointer;
-  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 999px;
-}
-.patch-cell:hover { border-color: var(--plugin-accent); }
-.patch-cell.on {
-  background: var(--plugin-accent); border-color: var(--plugin-accent);
-  box-shadow: inset 0 0 0 2px var(--card);
-}
+.patch-jack.on .patch-label { color: var(--foreground); }
 
-/* Steps hold a level, not a flag — a pattern with dynamics is the difference
-   between a sequencer and a metronome. */
-.steps { display: flex; gap: 2px; width: 100%; min-height: clamp(34px, 6cqi, 70px); }
+/* A socket, not a dot: a ring with a dark centre reads as something a plug
+   goes into, which is the affordance the whole face depends on. */
+.patch-hole {
+  width: clamp(9px, 1.6cqi, 14px); height: clamp(9px, 1.6cqi, 14px);
+  border-radius: 999px; flex: none;
+  background: var(--mark-screen);
+  border: 2px solid var(--card-border-hover);
+  box-shadow: inset 0 0 0 1px var(--background);
+}
+.patch-jack.on .patch-hole { border-color: currentColor; background: currentColor; }
+.patch-jack:hover .patch-hole { border-color: currentColor; }
+
+.patch-wires {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 1; overflow: visible;
+}
+.patch-cable {
+  fill: none; stroke-width: 2.5; stroke-linecap: round;
+  vector-effect: non-scaling-stroke; cursor: pointer;
+  pointer-events: stroke;
+}
+.patch-cable:hover { stroke-width: 4; }
+/* The cable in flight follows the pointer and must not eat the drop. */
+.patch-dragging { pointer-events: none; opacity: 0.7; stroke-dasharray: 4 3; }
+
+/* ── the step grid ─────────────────────────────────────────────────────
+   A step is not a flag: it carries a note, a velocity and a gate, which is
+   the difference between a sequencer and a metronome. Three lanes, one at a
+   time — sixteen by four will not fit on a panel and trying makes a
+   spreadsheet. */
+.steps-face { display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 0; }
+/* Sixteen across when there is room, eight by two when there is not. Below
+   about 340px each of sixteen steps is under twenty pixels, which is a target
+   you miss; wrapped, the same panel gives thirty-two. The grid keeps
+   step order across the wrap, so the playhead still runs left to right and
+   drops to the next row. */
+.steps {
+  display: grid; grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px; width: 100%; flex: 1; min-height: clamp(30px, 5cqi, 64px);
+}
+@container (max-width: 340px) {
+  .steps { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  /* Two rows need twice the height or each one is a sliver. */
+  .steps-face { min-height: 62px; }
+}
+/* The bar line every four steps, which is how you count a pattern without
+   counting it. */
+.steps .step:nth-child(4n + 1) { border-left-color: var(--card-border-hover); }
 .steps .step {
   position: relative; flex: 1; padding: 0; cursor: ns-resize;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 2px;
   overflow: hidden;
 }
-.steps .step.head { border-color: var(--plugin-accent); }
-.step-fill {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  background: var(--plugin-accent);
+/* An inactive step still shows its value, dimmed — so turning one on does not
+   feel like it appeared from nowhere. */
+.steps .step .step-fill { opacity: 0.22; }
+.steps .step.on .step-fill { opacity: 1; }
+.steps .step.head { border-color: var(--plugin-accent); box-shadow: 0 0 0 1px var(--plugin-accent); }
+.step-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--plugin-accent); }
+
+.steps-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.steps-gap { flex: 1; }
+.step-lane, .step-gen {
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.95cqi, 9px);
+  letter-spacing: 0.06em; cursor: pointer; padding: 2px 4px;
+  background: var(--card-alpha); color: var(--muted-foreground);
+  border: 1px solid var(--card-border); border-radius: 3px;
 }
+.step-lane.on { background: var(--plugin-accent); color: var(--primary-foreground); border-color: var(--plugin-accent); }
+.step-gen:hover { color: var(--foreground); border-color: var(--card-border-hover); }
 
 .xy {
   position: relative; width: 100%; min-height: clamp(56px, 11cqi, 120px); cursor: crosshair;

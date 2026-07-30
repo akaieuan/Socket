@@ -339,100 +339,293 @@ function Curve({ block }: FaceProps) {
 const PATCH_SRC = ["OSC", "SUB", "ENV", "LFO", "SEQ", "VEL"];
 const PATCH_DST = ["PITCH", "CUTOFF", "LEVEL", "FOLD", "PAN", "SEND"];
 
+/** One per source, so a bundle of cables can be read apart. */
+const CABLE_HUE = ["--accent-blue", "--accent-rose", "--accent-amber", "--accent-violet", "--accent-green", "--foreground"];
+
 /**
- * The patch bay.
+ * The patch bay, with cables.
  *
- * Rows are what can modulate, columns are what can be modulated, and a cell is
- * a cable. It is the one block that makes a synth feel like an instrument
- * rather than a preset with knobs, and it is the piece bleep is having removed
- * into its own plugin — so it belongs in the catalogue before that lands.
+ * It was a matrix of dots, which is a fine editor and a poor instrument: it
+ * shows every connection you could make and none of the ones you did, because
+ * a filled cell six rows down from a label reads as a value in a spreadsheet
+ * rather than as a route. The whole point of a patch bay is that the routing
+ * is the thing you can see.
+ *
+ * So: jacks down each side and a cable between them. Drag from a source to a
+ * destination to patch, click a cable to pull it. Each source has its own
+ * colour, because the moment there are four cables the only question you ever
+ * ask is which one goes where.
+ *
+ * Cables sag. A straight line between two points is a diagram; a catenary is a
+ * cable, and the sag is what lets your eye follow one across three others.
  */
 function Matrix({ block, onFace }: FaceProps) {
   const rows = PATCH_SRC.length, cols = PATCH_DST.length;
+  // Kept as the same source×destination grid the matrix used, so an existing
+  // patch survives the change — the encoding was never the problem.
   const cells = useFaceState(block, rows * cols, () => 0);
-  const toggle = (i: number) => {
+  const box = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ src: number; x: number; y: number } | null>(null);
+
+  const toggle = (src: number, dst: number) => {
     const next = cells.slice();
+    const i = src * cols + dst;
     next[i] = next[i] ? 0 : 1;
     onFace(next);
   };
 
+  /** Where a jack sits, in the SVG's own 0..100 space. */
+  const at = (side: "src" | "dst", i: number, n: number) => ({
+    x: side === "src" ? 9 : 91,
+    y: ((i + 0.5) / n) * 100,
+  });
+
+  const cable = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = b.x - a.x;
+    // Sag proportional to span, so a short patch hangs less than a long one —
+    // which is what a real cable does and what makes the picture readable.
+    const sag = Math.min(26, Math.abs(dx) * 0.34);
+    const mid = (a.y + b.y) / 2 + sag;
+    return `M ${a.x} ${a.y} C ${a.x + dx * 0.35} ${mid} ${b.x - dx * 0.35} ${mid} ${b.x} ${b.y}`;
+  };
+
+  const start = (src: number) => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    const r = box.current?.getBoundingClientRect();
+    if (!r) return;
+
+    const move = (ev: PointerEvent) =>
+      setDrag({ src, x: ((ev.clientX - r.left) / r.width) * 100, y: ((ev.clientY - r.top) / r.height) * 100 });
+
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDrag(null);
+      // Nearest destination jack, if the release landed near one. A drop that
+      // has to be pixel-accurate is a drop you make twice.
+      const y = ((ev.clientY - r.top) / r.height) * 100;
+      const x = ((ev.clientX - r.left) / r.width) * 100;
+      if (x < 55) return;
+      const dst = Math.round((y / 100) * cols - 0.5);
+      if (dst >= 0 && dst < cols) toggle(src, dst);
+    };
+
+    setDrag({ src, x: at("src", src, rows).x, y: at("src", src, rows).y });
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const patched = cells.flatMap((v, i) => (v ? [{ src: (i / cols) | 0, dst: i % cols }] : []));
+
   return (
-    <div className="patchbay" style={{ gridTemplateColumns: `auto repeat(${cols}, 1fr)` }}>
-      <span />
-      {PATCH_DST.map((d) => <span key={d} className="patch-col">{d}</span>)}
-      {PATCH_SRC.map((s, r) => (
-        <Row key={s} label={s}>
-          {PATCH_DST.map((_, c) => {
-            const i = r * cols + c;
-            return (
-              <button
-                key={c}
-                className={`patch-cell${cells[i] ? " on" : ""}`}
-                onPointerDown={(e) => { e.stopPropagation(); toggle(i); }}
-                aria-label={`${s} to ${PATCH_DST[c]}`}
-              />
-            );
-          })}
-        </Row>
-      ))}
+    <div className="patchbay" ref={box}>
+      <div className="patch-side patch-src">
+        {PATCH_SRC.map((label, i) => (
+          <button
+            key={label}
+            className={`patch-jack${patched.some((p) => p.src === i) ? " on" : ""}`}
+            style={{ color: `var(${CABLE_HUE[i]})` }}
+            onPointerDown={start(i)}
+            title={`Drag ${label} to a destination`}
+          >
+            <span className="patch-label">{label}</span>
+            <span className="patch-hole" />
+          </button>
+        ))}
+      </div>
+
+      {/* The cables sit above the jacks and below the pointer: they have to be
+          clickable to be pullable, but must not block a drag from a jack. */}
+      <svg className="patch-wires" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {patched.map(({ src, dst }) => (
+          <path
+            key={`${src}-${dst}`}
+            className="patch-cable"
+            d={cable(at("src", src, rows), at("dst", dst, cols))}
+            stroke={`var(${CABLE_HUE[src]})`}
+            onPointerDown={(e) => { e.stopPropagation(); toggle(src, dst); }}
+          />
+        ))}
+        {drag && (
+          <path
+            className="patch-cable patch-dragging"
+            d={cable(at("src", drag.src, rows), { x: drag.x, y: drag.y })}
+            stroke={`var(${CABLE_HUE[drag.src]})`}
+          />
+        )}
+      </svg>
+
+      <div className="patch-side patch-dst">
+        {PATCH_DST.map((label, i) => (
+          <button
+            key={label}
+            className={`patch-jack${patched.some((p) => p.dst === i) ? " on" : ""}`}
+            title={label}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span className="patch-hole" />
+            <span className="patch-label">{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-/** Row label plus its cells, flattened into the parent grid. */
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return <>
-    <span className="patch-row">{label}</span>
-    {children}
-  </>;
-}
+/* ── the step grid ─────────────────────────────────────────────────────── */
+
+const STEPS = 16;
+/** Per step: active, note, velocity, gate. One flat array on the instance. */
+const STRIDE = 4;
+
+/** Which of the four a row edits. Drag anywhere in the column to set it. */
+const LANES = [
+  { key: "vel" as const, label: "VEL" },
+  { key: "note" as const, label: "NOTE" },
+  { key: "gate" as const, label: "GATE" },
+];
+
+const PATTERNS = ["1/4", "OFF", "1/8", "E3", "E5", "E7", "RND", "CLR"];
 
 /**
- * A step sequencer.
+ * A step sequencer, after bleep's.
  *
- * Click-drag sets each step's level rather than just on/off, because a pattern
- * with dynamics is the difference between a sequencer and a metronome. The
- * playhead runs whether or not anything is making sound — it is the clearest
- * signal in the whole tool that this is a plugin and not a diagram.
+ * bleep's is the best-thought-out thing in the three plugins, and the shape it
+ * gets right is that a step is not a flag. It carries a note, a velocity and a
+ * gate length, and that is the whole difference between a sequencer and a
+ * metronome — a pattern of identical hits is what a boolean gives you, and it
+ * is why most built-in sequencers sound like a demo.
+ *
+ * Three lanes, one at a time. Sixteen steps by four values will not fit on a
+ * panel at once and trying makes a spreadsheet; a lane switch costs one click
+ * and keeps each view a shape you can read across.
+ *
+ * The playhead comes from the audio thread, not from a timer. The old grid ran
+ * its own setInterval, which meant the line you watched and the note you heard
+ * were two different clocks — visibly two, within a bar.
  */
 function Steps({ block, onFace }: FaceProps) {
-  const n = 16;
-  const values = useFaceState(block, n, (i) => (i % 4 === 0 ? 0.8 : i % 2 === 0 ? 0.45 : 0));
-  const [head, setHead] = useState(0);
-  // The Rate knob drives it. It sat directly under a playhead running at a
-  // fixed tempo, which is the most visible possible version of a control that
-  // does nothing.
-  const ms = Math.round(400 - val(block, "rate", 0.5) * 340);
+  const sound = useAudioContext();
+  const [lane, setLane] = useState<(typeof LANES)[number]["key"]>("vel");
 
-  useEffect(() => {
-    const id = window.setInterval(() => setHead((h) => (h + 1) % n), ms);
-    return () => window.clearInterval(id);
-  }, [ms]);
+  const values = useFaceState(block, STEPS * STRIDE, (i) => {
+    const field = i % STRIDE;
+    const step = (i / STRIDE) | 0;
+    if (field === 0) return step % 4 === 0 ? 1 : 0;   // active
+    if (field === 1) return 60;                        // note
+    if (field === 2) return 0.9;                       // velocity
+    return 0.5;                                        // gate
+  });
 
-  const set = (i: number, v: number) => {
+  const read = (step: number, field: number) => values[step * STRIDE + field]!;
+
+  /** Write locally and to the engine in one move — they cannot disagree. */
+  const write = (step: number, changes: Partial<Record<number, number>>) => {
     const next = values.slice();
-    next[i] = Math.max(0, Math.min(1, v));
+    for (const [field, v] of Object.entries(changes)) next[step * STRIDE + Number(field)] = v!;
+    onFace(next);
+    sound.setStep(block.uid, step, {
+      active: next[step * STRIDE]! > 0.5,
+      note: Math.round(next[step * STRIDE + 1]!),
+      velocity: next[step * STRIDE + 2]!,
+      gate: next[step * STRIDE + 3]!,
+    });
+  };
+
+  // Everything the engine does not already know: on mount, and whenever the
+  // pattern is replaced wholesale by a generator.
+  useEffect(() => {
+    for (let i = 0; i < STEPS; i++)
+      sound.setStep(block.uid, i, {
+        active: read(i, 0) > 0.5,
+        note: Math.round(read(i, 1)),
+        velocity: read(i, 2),
+        gate: read(i, 3),
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.join(","), sound.running]);
+
+  const generate = (which: number) => {
+    const next = values.slice();
+    const set = (i: number, on: boolean) => { next[i * STRIDE] = on ? 1 : 0; };
+    for (let i = 0; i < STEPS; i++) set(i, false);
+    const euclid = (k: number) => { for (let i = 0; i < k; i++) set(((i * STEPS) / k) | 0, true); };
+
+    // The same eight bleep offers. The Euclidean ones are the reason its grid
+    // is pleasant: a blank sixteen is a chore, and those produce patterns
+    // nobody arrives at by clicking.
+    if (which === 0) for (let i = 0; i < STEPS; i += 4) set(i, true);
+    if (which === 1) for (let i = 2; i < STEPS; i += 4) set(i, true);
+    if (which === 2) for (let i = 0; i < STEPS; i += 2) set(i, true);
+    if (which === 3) euclid(3);
+    if (which === 4) euclid(5);
+    if (which === 5) euclid(7);
+    if (which === 6) for (let i = 0; i < STEPS; i++) set(i, Math.random() > 0.55);
     onFace(next);
   };
 
-  const paint = (e: React.PointerEvent, i: number) => {
+  /** Drag sets the lane's value; the top of the column is 1. */
+  const paint = (e: React.PointerEvent, step: number) => {
     const box = e.currentTarget.getBoundingClientRect();
-    set(i, 1 - (e.clientY - box.top) / box.height);
+    const t = Math.max(0, Math.min(1, 1 - (e.clientY - box.top) / box.height));
+    if (lane === "vel") write(step, { 0: 1, 2: Math.max(0.05, t) });
+    if (lane === "gate") write(step, { 3: Math.max(0.02, t) });
+    // Two octaves of travel, snapped: a continuous pitch lane is unplayable.
+    if (lane === "note") write(step, { 1: Math.round(36 + t * 48) });
+  };
+
+  const height = (step: number) => {
+    if (lane === "vel") return read(step, 2);
+    if (lane === "gate") return read(step, 3);
+    return (read(step, 1) - 36) / 48;
   };
 
   return (
-    <div className="steps">
-      {values.map((v, i) => (
-        <button
-          key={i}
-          className={`step${head === i ? " head" : ""}`}
-          onPointerDown={(e) => { e.stopPropagation(); paint(e, i); }}
-          onPointerEnter={(e) => e.buttons === 1 && paint(e, i)}
-          aria-label={`Step ${i + 1}`}
-        >
-          <span className="step-fill" style={{ height: `${v * 100}%` }} />
-        </button>
-      ))}
+    <div className="steps-face">
+      <div className="steps">
+        {Array.from({ length: STEPS }, (_, i) => {
+          const on = read(i, 0) > 0.5;
+          return (
+            <button
+              key={i}
+              className={`step${sound.status.step === i ? " head" : ""}${on ? " on" : ""}`}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                // A click on the active lane toggles; a drag sets the value.
+                if (lane === "vel" && on) write(i, { 0: 0 });
+                else paint(e, i);
+              }}
+              onPointerEnter={(e) => e.buttons === 1 && paint(e, i)}
+              aria-label={`Step ${i + 1}`}
+            >
+              <span className="step-fill" style={{ height: `${height(i) * 100}%` }} />
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="steps-tools">
+        {LANES.map((l) => (
+          <button
+            key={l.key}
+            className={`step-lane${lane === l.key ? " on" : ""}`}
+            onPointerDown={(e) => { e.stopPropagation(); setLane(l.key); }}
+          >
+            {l.label}
+          </button>
+        ))}
+        <span className="steps-gap" />
+        {PATTERNS.map((p, i) => (
+          <button
+            key={p}
+            className="step-gen"
+            onPointerDown={(e) => { e.stopPropagation(); generate(i); }}
+            title={`Pattern: ${p}`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

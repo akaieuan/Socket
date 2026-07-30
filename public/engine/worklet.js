@@ -22,6 +22,11 @@ class EngineProcessor extends AudioWorkletProcessor {
     // being dropped — the UI sends the whole project state immediately on
     // connect and the wasm takes a moment.
     this.queue = [];
+    // A status tick back to the interface. The grid needs to know which step is
+    // playing and nothing else can tell it — the AnalyserNode carries audio, not
+    // state. Thirty a second is smooth enough to draw a playhead and cheap
+    // enough not to notice.
+    this.tick = 0;
     this.port.onmessage = (e) => this.receive(e.data);
   }
 
@@ -60,6 +65,9 @@ class EngineProcessor extends AudioWorkletProcessor {
         e._aka_commit_blocks();
         break;
       case "param":    e._aka_set_param(msg.block, msg.index, msg.value); break;
+      case "step":
+        e._aka_set_step(msg.block, msg.index, msg.active ? 1 : 0, msg.note, msg.velocity, msg.gate);
+        break;
       case "noteOn":   e._aka_note_on(msg.note, msg.velocity); break;
       case "noteOff":  e._aka_note_off(msg.note); break;
       case "panic":    e._aka_all_notes_off(); break;
@@ -93,6 +101,16 @@ class EngineProcessor extends AudioWorkletProcessor {
     const r = heap.subarray(this.ptrR >> 2, (this.ptrR >> 2) + n);
     out[0].set(l);
     if (out[1]) out[1].set(r);
+
+    this.tick += n;
+    if (this.tick >= sampleRate / 30) {
+      this.tick = 0;
+      this.port.postMessage({
+        type: "status",
+        step: e._aka_current_step(),
+        voices: e._aka_active_voices(),
+      });
+    }
 
     return true;
   }

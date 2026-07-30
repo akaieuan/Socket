@@ -80,7 +80,7 @@ export const BLOCK_PARAMS: Record<string, number> = {
   "lfo": 4,
   "random": 4,
   "follow": 3,
-  "seq": 4,
+  "seq": 6,
   "arp": 4,
   "keytrack": 3,
   "delay": 6,

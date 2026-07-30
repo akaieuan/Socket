@@ -20,16 +20,39 @@ export { BLOCK_TYPE };
  * behind them. The engine skips the rest, and this list is what the interface
  * uses to say so.
  */
-export const IMPLEMENTED = new Set(["osc", "sub", "noise", "filter", "drive", "env", "lfo", "out"]);
+export const IMPLEMENTED = new Set([
+  // Source
+  "osc", "sub", "noise", "wavetable", "fmop", "string",
+  // Shape
+  "filter", "formant", "comb", "drive", "fold", "crush", "eq", "gate",
+  // Modulate
+  "env", "lfo",
+  // Route
+  "out",
+]);
+
+/**
+ * Blocks whose engine exists but is standing in for something else.
+ *
+ * The Sampler plays a synthesised body because there is no file layer yet, and
+ * a sampler that cannot load a sample is not a sampler. It is left out of the
+ * list above on purpose: the dot means "this does what it says", not "this
+ * emits a tone".
+ */
+export const PLACEHOLDER = new Set(["sampler"]);
 
 export const hasEngine = (type: string) => IMPLEMENTED.has(type);
 
 type Message =
   | { type: "blocks"; types: number[] }
   | { type: "param"; block: number; index: number; value: number }
+  | { type: "step"; block: number; index: number; active: boolean; note: number; velocity: number; gate: number }
   | { type: "noteOn"; note: number; velocity: number }
   | { type: "noteOff"; note: number }
   | { type: "panic" };
+
+/** What the audio thread reports back, thirty times a second. */
+export type Status = { step: number; voices: number };
 
 export class Audio {
   private ctx: AudioContext | null = null;
@@ -38,6 +61,8 @@ export class Audio {
   private ready = false;
   private pending: Message[] = [];
   private onReady: (() => void) | null = null;
+  private listeners = new Set<(s: Status) => void>();
+  status: Status = { step: -1, voices: 0 };
 
   /** Browsers will not start an AudioContext without a gesture, so this is
       called from the first click rather than at mount. */
@@ -71,6 +96,10 @@ export class Audio {
         for (const m of this.pending) node.port.postMessage(m);
         this.pending.length = 0;
         this.onReady?.();
+      }
+      if (e.data?.type === "status") {
+        this.status = e.data;
+        for (const fn of this.listeners) fn(e.data);
       }
       if (e.data?.type === "error") console.error("[aka engine]", e.data.message);
     };
@@ -120,6 +149,27 @@ export class Audio {
     const def = byType(blocks[block]!.type);
     const index = def?.params.findIndex((d) => paramId.startsWith(`${d.label.toLowerCase()}-`)) ?? -1;
     if (index >= 0) this.send({ type: "param", block, index, value });
+  }
+
+  /** Subscribe to the audio thread's status. Returns the unsubscribe. */
+  onStatus(fn: (s: Status) => void) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  /**
+   * One sequencer step.
+   *
+   * Sent individually rather than as a pattern, because editing one step should
+   * not resend sixteen — and because the grid edits one at a time.
+   */
+  setStep(
+    project: Project, uid: string, index: number,
+    step: { active: boolean; note: number; velocity: number; gate: number },
+  ) {
+    const block = project.pages.flatMap((p) => p.blocks).findIndex((b) => b.uid === uid);
+    if (block < 0) return;
+    this.send({ type: "step", block, index, ...step });
   }
 
   noteOn(note: number, velocity = 0.9) { this.send({ type: "noteOn", note, velocity }); }

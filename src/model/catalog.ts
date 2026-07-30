@@ -138,9 +138,25 @@ export const CATALOG: BlockDef[] = [
     params: [knob("Attack", 0.1), knob("Release", 0.4), knob("Gain", 0.6)],
   },
   {
+    // Rate, Swing, Gate and Loop described a metronome. A sequencer's globals
+    // are a tempo, a division, how much it shuffles, how long the notes are,
+    // how many steps before it wraps, and whether it is running. What each step
+    // *plays* is not a parameter — sixteen steps of note, velocity and gate is
+    // sixty-four numbers and a parameter list is the wrong shape for it. Those
+    // live in the grid.
+    // minSpan 3, not 5: it was 5 when sixteen steps had to fit on one row.
+    // The grid wraps to eight by two now, so a narrow sequencer is a shape the
+    // block can actually take.
     type: "seq", name: "Sequencer", group: "Modulate", from: "bleep · Sequencer.cpp",
-    ports: mod, defaultSpan: 8, minSpan: 5, face: "steps",
-    params: [knob("Rate", 0.5), knob("Swing"), knob("Gate", 0.6), toggle("Loop", true)],
+    ports: mod, defaultSpan: 8, minSpan: 3, face: "steps",
+    params: [
+      knob("Tempo", 0.4),
+      choice("Rate", ["1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"], 3),
+      knob("Swing", 0),
+      knob("Gate", 0.5),
+      knob("Length", 1),
+      toggle("Run", false),
+    ],
   },
   {
     type: "arp", name: "Arpeggiator", group: "Modulate", from: "— not built",
@@ -297,7 +313,9 @@ export const CATALOG: BlockDef[] = [
  */
 const FACE_ROWS: Record<string, number> = {
   screen: 5, scope: 4, spectrum: 4, curve: 4, meter: 4,
-  matrix: 8, steps: 4, xy: 6, keys: 4, pads: 5, readout: 4,
+  // The grid plus its lane and pattern rows; and the patch bay needs room for
+  // six jacks a side with cables between them, which a matrix of dots did not.
+  matrix: 9, steps: 7, xy: 6, keys: 4, pads: 5, readout: 4,
 };
 
 /**

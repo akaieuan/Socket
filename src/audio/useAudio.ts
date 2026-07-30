@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { audio } from "./engine";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { audio, type Status } from "./engine";
 import type { Project } from "@/model/types";
 
 /**
@@ -25,6 +25,13 @@ const KEYS: Record<string, number> = {
  */
 export function useAudio(project: Project) {
   const [running, setRunning] = useState(false);
+  // Straight from the audio thread. A playhead driven by a timer in the
+  // interface and a playhead driven by the clock that fires the notes are two
+  // different playheads, and within a bar you can see that they are.
+  const status = useSyncExternalStore<Status>(
+    (fn) => audio.onStatus(fn),
+    () => audio.status,
+  );
   const [octave, setOctave] = useState(4);
   const [held, setHeld] = useState<number[]>([]);
   const octaveRef = useRef(octave);
@@ -91,6 +98,7 @@ export function useAudio(project: Project) {
 
   return {
     running,
+    status,
     octave,
     setOctave,
     held,
@@ -98,6 +106,10 @@ export function useAudio(project: Project) {
     noteOn: (note: number, velocity = 0.9) => { void start().then(() => audio.noteOn(note, velocity)); },
     noteOff: (note: number) => audio.noteOff(note),
     setParam: (uid: string, paramId: string, value: number) => audio.setParam(project, uid, paramId, value),
+    setStep: (
+      uid: string, index: number,
+      step: { active: boolean; note: number; velocity: number; gate: number },
+    ) => audio.setStep(project, uid, index, step),
     panic: () => audio.panic(),
   };
 }
