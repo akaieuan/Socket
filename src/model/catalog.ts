@@ -1,0 +1,287 @@
+import type { BlockDef, Param } from "./types";
+
+/**
+ * The block catalogue.
+ *
+ * A block is a panel with parameters, ports and sometimes a face. That maps
+ * onto how the instruments are already built — bleep and enzyme are both a grid
+ * of panels, each owning a few parameters — and onto how they are wired, which
+ * the layout alone never expressed.
+ *
+ * These are mock blocks: nothing here makes sound. `from` says where the DSP
+ * lives today, and "— not built" means exactly that. Keeping the gap visible
+ * while using the tool is the point; a catalogue that hides which half is real
+ * would let us design against DSP that does not exist. That ordering is
+ * deliberate anyway — the tool is what tells us what a block has to expose, and
+ * guessing before building it is how you get an abstraction nobody can use.
+ */
+
+type Spec = Omit<Param, "id">;
+
+const knob = (label: string, value = 0.5): Spec => ({ label, kind: "knob", value });
+const fader = (label: string, value = 0.5): Spec => ({ label, kind: "fader", value });
+const choice = (label: string, options: string[], value = 0): Spec => ({ label, kind: "choice", value, options });
+const toggle = (label: string, on = false): Spec => ({ label, kind: "toggle", value: on ? 1 : 0 });
+const mix = (value = 0.35) => knob("Mix", value);
+
+/** Not in the audio path — a modulator or a display. */
+const mod: BlockDef["ports"] = { audioIn: 0, audioOut: 0, modOut: true };
+const gen: BlockDef["ports"] = { audioIn: 0, audioOut: 1, modOut: false };
+const fx: BlockDef["ports"] = { audioIn: 1, audioOut: 1, modOut: false };
+const sink: BlockDef["ports"] = { audioIn: 1, audioOut: 0, modOut: false };
+const passive: BlockDef["ports"] = { audioIn: 0, audioOut: 0, modOut: false };
+
+export const CATALOG: BlockDef[] = [
+  /* ── Source ───────────────────────────────────────────────────────── */
+  {
+    type: "osc", name: "Oscillator", group: "Source", from: "bleep · Oscillator.h",
+    ports: gen, defaultSpan: 4,
+    params: [choice("Wave", ["Saw", "Square", "Sine", "FM"]), knob("Tune"), knob("Fine"), knob("Level", 0.8), knob("PW")],
+  },
+  {
+    type: "sub", name: "Sub", group: "Source", from: "bleep · Voice.cpp",
+    ports: gen, defaultSpan: 3,
+    params: [knob("Level", 0.4), choice("Octave", ["-1", "-2"]), choice("Shape", ["Sine", "Square"])],
+  },
+  {
+    type: "noise", name: "Noise", group: "Source", from: "enzyme · Dirt",
+    ports: gen, defaultSpan: 3,
+    params: [choice("Kind", ["White", "Crackle", "Geiger", "Burst"]), knob("Level", 0.2), knob("Colour")],
+  },
+  {
+    type: "wavetable", name: "Wavetable", group: "Source", from: "— not built",
+    ports: gen, defaultSpan: 5, face: "scope",
+    params: [choice("Table", ["Basic", "Metal", "Vox", "Glass"]), knob("Position", 0.3), knob("Warp"), knob("Level", 0.8)],
+  },
+  {
+    type: "sampler", name: "Sampler", group: "Source", from: "enzyme · Layer.cpp",
+    ports: gen, defaultSpan: 5, face: "scope",
+    params: [knob("Start", 0), knob("Length", 1), knob("Tune"), knob("Level", 0.8), toggle("Loop", true)],
+  },
+  {
+    type: "fmop", name: "FM operator", group: "Source", from: "bleep · Oscillator.h",
+    ports: gen, defaultSpan: 4,
+    params: [knob("Ratio", 0.25), knob("Index", 0.4), knob("Feedback", 0.1), knob("Level", 0.7)],
+  },
+  {
+    type: "string", name: "String", group: "Source", from: "i4 · RingResonator.cpp",
+    ports: gen, defaultSpan: 4,
+    params: [knob("Pitch"), knob("Damping", 0.4), knob("Position", 0.3), knob("Level", 0.7)],
+  },
+
+  /* ── Shape ────────────────────────────────────────────────────────── */
+  {
+    type: "filter", name: "Filter", group: "Shape", from: "bleep · Voice.cpp",
+    ports: fx, defaultSpan: 5,
+    params: [choice("Mode", ["LP24", "LP12", "HP12", "BP12", "Notch"]), knob("Cutoff", 0.7), knob("Reso", 0.2), knob("Env", 0.3), knob("Key")],
+  },
+  {
+    type: "formant", name: "Formant", group: "Shape", from: "— not built",
+    ports: fx, defaultSpan: 4,
+    params: [choice("Vowel", ["A", "E", "I", "O", "U"]), knob("Morph"), knob("Width", 0.4), mix(1)],
+  },
+  {
+    type: "comb", name: "Comb", group: "Shape", from: "i4 · RingResonator.cpp",
+    ports: fx, defaultSpan: 3,
+    params: [knob("Tune", 0.4), knob("Feedback", 0.5), mix()],
+  },
+  {
+    type: "drive", name: "Character", group: "Shape", from: "enzyme · LoFiMangle.cpp",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Drive", 0.4), knob("Bias"), knob("Tone", 0.5), mix(1)],
+  },
+  {
+    type: "fold", name: "Wavefolder", group: "Shape", from: "— not built",
+    ports: fx, defaultSpan: 3,
+    params: [knob("Fold", 0.3), knob("Symmetry"), mix(1)],
+  },
+  {
+    type: "crush", name: "Bitcrusher", group: "Shape", from: "enzyme · LoFiMangle.cpp",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Bits", 0.8), knob("Rate", 0.9), knob("Jitter", 0.1), mix()],
+  },
+  {
+    type: "eq", name: "EQ", group: "Shape", from: "— not built",
+    ports: fx, defaultSpan: 5, face: "spectrum",
+    params: [fader("Low"), fader("Lo mid"), fader("Hi mid"), fader("High")],
+  },
+  {
+    type: "gate", name: "Gate", group: "Shape", from: "— not built",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Thresh", 0.3), knob("Attack", 0.05), knob("Hold", 0.2), knob("Release", 0.3)],
+  },
+
+  /* ── Modulate ─────────────────────────────────────────────────────── */
+  {
+    type: "env", name: "Envelope", group: "Modulate", from: "three implementations, none shared",
+    ports: mod, defaultSpan: 5, face: "curve",
+    params: [knob("A", 0.1), knob("D", 0.4), knob("S", 0.6), knob("R", 0.3)],
+  },
+  {
+    type: "env2", name: "Mod envelope", group: "Modulate", from: "— not built",
+    ports: mod, defaultSpan: 6, face: "curve",
+    params: [knob("Delay", 0), knob("A", 0.2), knob("D", 0.5), knob("S", 0.3), knob("R", 0.4), knob("Amount", 0.5)],
+  },
+  {
+    type: "lfo", name: "LFO", group: "Modulate", from: "bleep · Voice.cpp",
+    ports: mod, defaultSpan: 4,
+    params: [choice("Shape", ["Sine", "Tri", "Square", "S&H"]), knob("Rate", 0.35), knob("Depth"), toggle("Sync", true)],
+  },
+  {
+    type: "random", name: "Random", group: "Modulate", from: "— not built",
+    ports: mod, defaultSpan: 4,
+    params: [choice("Mode", ["S&H", "Drift", "Walk"]), knob("Rate", 0.4), knob("Amount", 0.5), knob("Smooth", 0.2)],
+  },
+  {
+    type: "follow", name: "Follower", group: "Modulate", from: "— not built",
+    ports: mod, defaultSpan: 3,
+    params: [knob("Attack", 0.1), knob("Release", 0.4), knob("Gain", 0.6)],
+  },
+  {
+    type: "seq", name: "Sequencer", group: "Modulate", from: "bleep · Sequencer.cpp",
+    ports: mod, defaultSpan: 8, minSpan: 5, face: "steps",
+    params: [knob("Rate", 0.5), knob("Swing"), knob("Gate", 0.6), toggle("Loop", true)],
+  },
+  {
+    type: "arp", name: "Arpeggiator", group: "Modulate", from: "— not built",
+    ports: mod, defaultSpan: 5,
+    params: [choice("Mode", ["Up", "Down", "Up/Dn", "Random"]), knob("Rate", 0.5), knob("Octaves", 0.25), knob("Gate", 0.5)],
+  },
+  {
+    type: "keytrack", name: "Key tracking", group: "Modulate", from: "— not built",
+    ports: mod, defaultSpan: 3,
+    params: [knob("Amount", 0.5), knob("Centre"), choice("Curve", ["Lin", "Exp"])],
+  },
+
+  /* ── Effect ───────────────────────────────────────────────────────── */
+  {
+    type: "delay", name: "Delay", group: "Effect", from: "bleep · FxChain.cpp",
+    ports: fx, defaultSpan: 6,
+    params: [knob("Time", 0.4), knob("Feedback", 0.35), knob("Spread", 0.5), knob("Tone", 0.6), mix(0.25), toggle("Sync", true)],
+  },
+  {
+    type: "reverb", name: "Reverb", group: "Effect", from: "bleep · FxChain.cpp",
+    ports: fx, defaultSpan: 6,
+    params: [knob("Size", 0.55), knob("Decay", 0.5), knob("Damp", 0.4), knob("Pre", 0.1), knob("Width", 0.7), mix(0.3)],
+  },
+  {
+    type: "chorus", name: "Chorus", group: "Effect", from: "bleep · FxChain.cpp",
+    ports: fx, defaultSpan: 5,
+    params: [knob("Rate", 0.3), knob("Depth", 0.4), choice("Voices", ["2", "4", "6"]), knob("Spread", 0.6), mix(0.3)],
+  },
+  {
+    type: "phaser", name: "Phaser", group: "Effect", from: "— not built",
+    ports: fx, defaultSpan: 5,
+    params: [knob("Rate", 0.25), knob("Depth", 0.6), choice("Stages", ["4", "6", "8", "12"]), knob("Feedback", 0.3), mix(0.4)],
+  },
+  {
+    type: "flanger", name: "Flanger", group: "Effect", from: "— not built",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Rate", 0.2), knob("Depth", 0.5), knob("Feedback", 0.45), mix(0.4)],
+  },
+  {
+    type: "comp", name: "Compressor", group: "Effect", from: "— not built",
+    ports: fx, defaultSpan: 6, face: "meter",
+    params: [knob("Thresh", 0.6), knob("Ratio", 0.35), knob("Attack", 0.2), knob("Release", 0.4), knob("Makeup", 0.3)],
+  },
+  {
+    type: "limiter", name: "Limiter", group: "Effect", from: "— not built",
+    ports: fx, defaultSpan: 4, face: "meter",
+    params: [knob("Ceiling", 0.95), knob("Release", 0.4)],
+  },
+  {
+    type: "tape", name: "Tape", group: "Effect", from: "enzyme · LoFiMangle.cpp",
+    ports: fx, defaultSpan: 5,
+    params: [knob("Wow", 0.2), knob("Flutter", 0.15), knob("Sat", 0.4), knob("Hiss", 0.1), mix(1)],
+  },
+  {
+    type: "grain", name: "Granular", group: "Effect", from: "i4 · MosaicEngine.cpp",
+    ports: fx, defaultSpan: 5,
+    params: [knob("Size", 0.4), knob("Spray", 0.3), knob("Pitch"), knob("Density", 0.5), mix(0.6)],
+  },
+  {
+    type: "ring", name: "Resonator", group: "Effect", from: "i4 · RingResonator.cpp",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Pitch"), knob("Decay", 0.6), knob("Tone", 0.4), mix(0.3)],
+  },
+  {
+    type: "width", name: "Stereo", group: "Effect", from: "— not built",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Width", 0.6), knob("Pan"), toggle("Bass mono", true)],
+  },
+  {
+    type: "fxchain", name: "FX chain", group: "Effect", from: "bleep · FxChain.cpp",
+    ports: fx, defaultSpan: 5,
+    params: [knob("Chorus", 0.3), knob("Delay", 0.25), knob("Reverb", 0.4), mix()],
+  },
+
+  /* ── Route ────────────────────────────────────────────────────────── */
+  {
+    type: "patch", name: "Patch bay", group: "Route", from: "bleep · patch_* params",
+    ports: passive, defaultSpan: 7, minSpan: 5, face: "matrix",
+    params: [knob("Depth", 0.5), knob("Slew", 0.1)],
+  },
+  {
+    type: "macros", name: "Macros", group: "Route", from: "— not built",
+    ports: mod, defaultSpan: 4,
+    params: [knob("M1"), knob("M2"), knob("M3"), knob("M4")],
+  },
+  {
+    type: "mixer", name: "Mixer", group: "Route", from: "— not built",
+    ports: sink, defaultSpan: 5, face: "meter",
+    params: [fader("A", 0.7), fader("B", 0.6), fader("C", 0.5), fader("D", 0.4)],
+  },
+  {
+    type: "voice", name: "Voice", group: "Route", from: "enzyme · EnzymeVoice",
+    ports: passive, defaultSpan: 5,
+    params: [choice("Mode", ["Poly", "Mono", "Legato"]), knob("Unison", 0.25), knob("Detune", 0.2), knob("Spread", 0.5), knob("Glide", 0)],
+  },
+  {
+    type: "split", name: "Crossover", group: "Route", from: "— not built",
+    ports: fx, defaultSpan: 4,
+    params: [knob("Freq", 0.5), choice("Slope", ["12", "24", "48"]), knob("Balance")],
+  },
+  {
+    type: "out", name: "Output", group: "Route", from: "every plugin, written three times",
+    ports: sink, defaultSpan: 3, face: "meter",
+    params: [knob("Level", 0.8)],
+  },
+
+  /* ── Display ──────────────────────────────────────────────────────── */
+  {
+    type: "screen", name: "Screen", group: "Display", from: "skeleton · PixelRack",
+    ports: passive, defaultSpan: 5, minSpan: 3, face: "screen", params: [],
+  },
+  {
+    type: "scope", name: "Scope", group: "Display", from: "— not built",
+    ports: passive, defaultSpan: 4, face: "scope", params: [],
+  },
+  {
+    type: "analyser", name: "Analyser", group: "Display", from: "skeleton · RackAnalysis",
+    ports: passive, defaultSpan: 5, face: "spectrum", params: [],
+  },
+  {
+    type: "meter", name: "Meter", group: "Display", from: "skeleton · RackAnalysis",
+    ports: passive, defaultSpan: 2, face: "meter", params: [],
+  },
+  {
+    type: "keys", name: "Keyboard", group: "Display", from: "— not built",
+    ports: passive, defaultSpan: 7, minSpan: 4, face: "keys", params: [],
+  },
+  {
+    type: "xy", name: "XY pad", group: "Display", from: "— not built",
+    ports: mod, defaultSpan: 3, face: "xy", params: [],
+  },
+  {
+    type: "pads", name: "Pads", group: "Display", from: "— not built",
+    ports: mod, defaultSpan: 4, minSpan: 3, face: "pads", params: [],
+  },
+  {
+    type: "readout", name: "Readout", group: "Display", from: "skeleton · ModuleReadout",
+    ports: passive, defaultSpan: 3, face: "readout", params: [],
+  },
+];
+
+export const byType = (type: string) => CATALOG.find((d) => d.type === type);
+
+export { GROUPS } from "./types";

@@ -55,238 +55,232 @@ ${block(".dark", dark, false)}
 * { box-sizing: border-box; }
 
 body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  margin: 0; overflow: hidden;
+  background: var(--background); color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
 }
+button { font: inherit; color: inherit; }
 
 /* Mono for structure, sans for prose — the house rule. */
 .label {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
-  margin: 0;
+  font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted-foreground); margin: 0;
 }
 
 .app { display: flex; flex-direction: column; height: 100vh; }
-
-/* Depth is a hairline, never a shadow. */
 .chrome {
-  display: flex; align-items: baseline; gap: 1rem;
-  padding: 0.9rem 1.25rem 0.9rem 5.5rem;
+  display: flex; align-items: center; gap: 1rem; flex: none;
+  padding: 0.75rem 1.25rem 0.75rem 5.5rem;
   border-bottom: 1px solid var(--hairline);
   -webkit-app-region: drag;
-  flex: none;
 }
+.chrome > * { -webkit-app-region: no-drag; }
 .wordmark { font-size: 1rem; font-weight: 300; letter-spacing: 0.02em; }
 .chrome-spacer { flex: 1; }
 
-.workspace { flex: 1; display: grid; grid-template-columns: 210px 1fr 230px; min-height: 0; }
-
-.rail {
-  border-right: 1px solid var(--hairline);
-  padding: 1rem;
-  overflow: auto;
-  -webkit-app-region: no-drag;
-}
+.workspace { flex: 1; display: grid; grid-template-columns: 220px 1fr 260px; min-height: 0; }
+.rail { border-right: 1px solid var(--hairline); padding: 1rem; overflow: auto; }
 .rail-right { border-right: none; border-left: 1px solid var(--hairline); }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; overflow: auto; padding: 1.5rem; }
 
-.palette { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.75rem; }
-.palette-item {
-  display: flex; flex-direction: column; gap: 0.15rem;
-  text-align: left; cursor: grab;
-  background: var(--card-alpha);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-pill);
-  padding: 0.5rem 0.6rem;
-  color: inherit; font: inherit;
-}
-.palette-item:hover { border-color: var(--card-border-hover); background: var(--card); }
-.palette-item:active { cursor: grabbing; }
-.palette-name { font-size: 0.8rem; }
-.palette-from {
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 0.6rem; color: var(--muted-foreground);
-}
-
-.stage { padding: 1.25rem; overflow: auto; }
-.stage-label { margin-bottom: 0.75rem; }
-
-/* The plugin face: a grid of panels, the way the instruments lay out. */
-.face {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 0.6rem;
-  align-content: start;
-  min-height: 200px;
-}
-.empty {
-  grid-column: span 12;
-  color: var(--muted-foreground);
-  font-size: 0.85rem;
-  border: 1px dashed var(--card-border);
-  border-radius: var(--radius-card);
-  padding: 2.5rem; text-align: center;
-}
-
-.panel {
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-card);
-  background: var(--card-alpha);
-  padding: 0.55rem 0.7rem 0.8rem;
-  min-width: 0;
-}
-.panel-selected { border-color: var(--accent-blue); }
-
-.panel-head { display: flex; align-items: center; gap: 0.4rem; }
-/* One tinted mark, the way the instruments label a module. */
-.panel-tab { width: 3px; height: 11px; background: var(--accent-blue); border-radius: 1px; }
-.panel-remove {
-  margin-left: auto; background: none; border: none; cursor: pointer;
-  color: var(--muted-foreground); font-size: 0.95rem; line-height: 1; padding: 0 2px;
-}
-.panel-remove:hover { color: var(--foreground); }
-
-.panel-body {
-  display: flex; flex-wrap: wrap; gap: 0.7rem;
-  margin-top: 0.7rem; align-items: flex-start;
-}
-
-.knob { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
-.knob-label {
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase;
+/* ── shared vocabulary ─────────────────────────────────────────────── */
+.sec { margin-bottom: 1.4rem; }
+.stack { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.55rem; }
+.field { display: flex; flex-direction: column; gap: 0.25rem; }
+.field-label {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.6rem;
   color: var(--muted-foreground);
 }
-
-.choice { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
-.choice-box {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem;
-  padding: 0.3rem 0.55rem;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-pill);
-  background: var(--card);
-  min-width: 54px; text-align: center;
+.text-input {
+  width: 100%; padding: 0.35rem 0.5rem;
+  background: var(--card); color: var(--foreground);
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+  font: inherit; font-size: 0.8rem;
 }
+.text-input:focus { outline: none; border-color: var(--accent-blue); }
+.slider { width: 100%; accent-color: var(--accent-blue); }
 
-.screen { width: 100%; height: 62px; display: block; }
-
-.hint { font-size: 0.75rem; color: var(--muted-foreground); margin: 0.5rem 0 0; line-height: 1.5; }
-.section { margin-top: 1.25rem; }
-
-.span-row { display: flex; gap: 0.25rem; margin-top: 0.5rem; }
-.span-btn {
-  flex: 1; padding: 0.3rem 0; cursor: pointer;
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.65rem;
+.segmented { display: flex; gap: 2px; }
+.seg {
+  flex: 1; padding: 0.3rem 0.5rem; cursor: pointer; white-space: nowrap;
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem;
   background: var(--card-alpha); color: var(--muted-foreground);
   border: 1px solid var(--card-border); border-radius: var(--radius-pill);
 }
-.span-btn.on { background: var(--accent-blue); color: var(--primary-foreground); border-color: var(--accent-blue); }
+.seg.on { background: var(--accent-blue); color: var(--primary-foreground); border-color: var(--accent-blue); }
 
-.param { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.55rem; }
-.param-name {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem;
-  color: var(--muted-foreground); width: 46px; flex: none;
+.list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.55rem; }
+.list-btn {
+  display: flex; align-items: stretch;
+  background: var(--card-alpha);
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
 }
-.param input[type="range"] { flex: 1; accent-color: var(--accent-blue); }
-.param-value { font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem; }
+.list-btn.on { border-color: var(--accent-blue); background: var(--card); }
+.list-main {
+  flex: 1; display: flex; flex-direction: column; gap: 0.1rem;
+  text-align: left; cursor: pointer; background: none; border: none;
+  padding: 0.4rem 0.55rem;
+}
+.list-title { font-size: 0.78rem; }
+.list-sub { font-family: ui-monospace, Menlo, monospace; font-size: 0.58rem; color: var(--muted-foreground); }
+.list-x { background: none; border: none; cursor: pointer; color: var(--muted-foreground); padding: 0 0.5rem; }
+.list-x:hover { color: var(--foreground); }
 
-/* ── The plugin window ──────────────────────────────────────────────────
-   Scaled to fit the stage, with transform-origin at the top-left so the
-   scaler box and the scaled content agree on where the thing starts. */
+.hint { font-size: 0.72rem; color: var(--muted-foreground); margin: 0.45rem 0 0; line-height: 1.5; }
+.add-btn {
+  width: 100%; margin-top: 0.5rem; padding: 0.4rem; cursor: pointer;
+  font-size: 0.75rem; background: var(--card-alpha); color: var(--muted-foreground);
+  border: 1px dashed var(--card-border); border-radius: var(--radius-pill);
+}
+.add-btn:hover { color: var(--foreground); border-color: var(--card-border-hover); }
+.add-btn.danger:hover { color: var(--accent-rose); border-color: var(--accent-rose); }
+
+.icon-btn {
+  width: 20px; height: 20px; cursor: pointer; line-height: 1;
+  background: var(--card-alpha); color: var(--muted-foreground);
+  border: 1px solid var(--card-border); border-radius: 4px;
+}
+.icon-btn:disabled { opacity: 0.3; cursor: default; }
+
+.param-edit {
+  display: grid; grid-template-columns: 1fr auto; gap: 0.3rem;
+  margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px solid var(--hairline);
+}
+.param-edit > :nth-child(n + 3) { grid-column: 1 / -1; }
+.param-tools { display: flex; gap: 2px; }
+
+/* ── palette ───────────────────────────────────────────────────────── */
+.palette { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+.palette-item {
+  display: flex; flex-direction: column; gap: 0.1rem; text-align: left; cursor: grab;
+  background: var(--card-alpha); border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill); padding: 0.42rem 0.55rem;
+}
+.palette-item:hover { border-color: var(--card-border-hover); background: var(--card); }
+.palette-name { font-size: 0.78rem; }
+.palette-from { font-family: ui-monospace, Menlo, monospace; font-size: 0.56rem; color: var(--muted-foreground); }
+
+/* ── the plugin window ─────────────────────────────────────────────── */
+.stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
 .frame-scaler { position: relative; flex: none; }
 .frame {
-  position: absolute; top: 0; left: 0;
-  transform-origin: top left;
+  position: absolute; top: 0; left: 0; transform-origin: top left;
   display: flex; flex-direction: column;
   background: var(--background);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  overflow: hidden;
+  border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden;
 }
-
-/* Chrome the instruments actually have. None of it functional — a layout
-   without its surroundings is not a layout you can judge. */
 .frame-head {
-  display: flex; align-items: center; gap: 14px;
-  padding: 0 14px; height: 42px; flex: none;
-  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 14px; flex: none;
+  padding: 0 14px; height: 42px; border-bottom: 1px solid var(--hairline);
 }
 .frame-word { font-size: 15px; font-weight: 300; letter-spacing: 0.06em; }
 .frame-preset {
   font-family: ui-monospace, Menlo, monospace; font-size: 11px;
   color: var(--muted-foreground);
-  border: 1px solid var(--card-border); border-radius: 5px;
-  padding: 4px 40px;
+  border: 1px solid var(--card-border); border-radius: 5px; padding: 4px 40px;
 }
 .frame-tabs { display: flex; gap: 3px; }
 .frame-tab {
   font-family: ui-monospace, Menlo, monospace; font-size: 10px;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  padding: 5px 14px; border-radius: 4px; color: var(--muted-foreground);
-  background: var(--card-alpha);
+  letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+  padding: 5px 14px; border: none; border-radius: 4px;
+  color: var(--muted-foreground); background: var(--card-alpha);
 }
 .frame-tab.on { background: var(--plugin-accent); color: var(--primary-foreground); }
 .frame-meter {
   margin-left: auto; width: 120px; height: 5px; border-radius: 3px;
   background: linear-gradient(90deg, var(--plugin-accent) 40%, var(--card) 40%);
 }
-
 .frame-body {
-  flex: 1; min-height: 0; overflow: auto;
-  display: grid; grid-template-columns: repeat(12, 1fr);
-  gap: 8px; align-content: start; padding: 12px;
+  flex: 1; min-height: 0; overflow: auto; padding: 12px;
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-content: start;
 }
 .frame-foot {
-  flex: none; height: 22px; display: flex; align-items: center;
+  flex: none; height: 22px; display: flex; align-items: center; gap: 16px;
   padding: 0 14px; border-top: 1px solid var(--hairline);
   font-family: ui-monospace, Menlo, monospace; font-size: 9px;
   letter-spacing: 0.1em; color: var(--muted-foreground);
 }
+.empty {
+  grid-column: span 12; color: var(--muted-foreground); font-size: 13px;
+  border: 1px dashed var(--card-border); border-radius: var(--radius-card);
+  padding: 2.5rem; text-align: center;
+}
 
-.stage { display: flex; align-items: center; justify-content: center; }
-
-/* Panels wear the plugin's accent, not the app's. */
-.panel { position: relative; }
-.panel .panel-tab { background: var(--plugin-accent); }
+/* ── a block on the face ───────────────────────────────────────────── */
+.panel {
+  position: relative; min-width: 0; cursor: grab;
+  border: 1px solid var(--card-border); border-radius: var(--radius-card);
+  background: var(--card-alpha); padding: 7px 9px 10px;
+}
 .panel-selected { border-color: var(--plugin-accent); }
-.panel[draggable="true"] { cursor: grab; }
-
-/* Resize by the edge. Setting width from a row of buttons describes a
-   layout; dragging the edge is laying one out. */
+.panel-head { display: flex; align-items: center; gap: 6px; }
+.panel-tab { width: 3px; height: 11px; border-radius: 1px; background: var(--plugin-accent); flex: none; }
+.panel-wired { width: 5px; height: 5px; border-radius: 999px; background: var(--accent-green); }
+.panel-remove {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--muted-foreground); font-size: 15px; line-height: 1; padding: 0 2px;
+}
+.panel-remove:hover { color: var(--foreground); }
+.panel-body { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 9px; align-items: flex-start; }
+/* Resize by the edge: dragging it is laying out, a row of buttons only
+   describes a layout. */
 .panel-grip {
-  position: absolute; top: 0; right: 0; width: 8px; height: 100%;
-  cursor: ew-resize; border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: ew-resize;
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
 }
 .panel-grip:hover { background: var(--plugin-accent); opacity: 0.35; }
 
-.name-input {
-  width: 100%; margin-top: 0.6rem; padding: 0.4rem 0.55rem;
+.knob { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.knob-label {
+  font-family: ui-monospace, Menlo, monospace; font-size: 8px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-foreground);
+}
+.choice { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.choice-box, .toggle-box {
+  font-family: ui-monospace, Menlo, monospace; font-size: 10px; cursor: pointer;
+  padding: 5px 9px; min-width: 54px; text-align: center;
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
   background: var(--card); color: var(--foreground);
-  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
-  font: inherit; font-size: 0.85rem;
 }
-.name-input:focus { outline: none; border-color: var(--accent-blue); }
+.toggle-box.on { background: var(--plugin-accent); color: var(--primary-foreground); border-color: var(--plugin-accent); }
+.screen { width: 100%; display: block; }
+.meter-block { display: flex; gap: 2px; align-items: flex-end; height: 40px; }
+.meter-seg { width: 5px; height: 100%; background: var(--plugin-accent); border-radius: 1px; }
 
-.size-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.55rem; }
-.size-btn {
-  display: flex; flex-direction: column; gap: 0.1rem;
-  text-align: left; cursor: pointer;
-  background: var(--card-alpha); color: inherit;
-  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
-  padding: 0.4rem 0.55rem; font: inherit; font-size: 0.8rem;
+/* ── signal view ───────────────────────────────────────────────────── */
+.signal { max-width: 900px; }
+.matrix { display: grid; gap: 3px; margin-top: 0.75rem; align-items: center; }
+.matrix-col {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.56rem;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted-foreground); text-align: center; padding-bottom: 4px;
 }
-.size-btn.on { border-color: var(--accent-blue); background: var(--card); }
-.size-dim {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.6rem;
-  color: var(--muted-foreground);
+.matrix-col.dim { opacity: 0.35; }
+.matrix-row {
+  display: flex; flex-direction: column; gap: 1px; text-align: left; cursor: pointer;
+  background: var(--card-alpha); border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill); padding: 0.35rem 0.5rem; font-size: 0.75rem;
 }
+.matrix-row.on { border-color: var(--accent-blue); }
+.matrix-from { font-family: ui-monospace, Menlo, monospace; font-size: 0.54rem; color: var(--muted-foreground); }
+.cell {
+  height: 30px; cursor: pointer;
+  background: var(--card-alpha); border: 1px solid var(--card-border); border-radius: 5px;
+}
+.cell:hover:not(:disabled) { border-color: var(--accent-blue); }
+.cell.wired { background: var(--accent-blue); border-color: var(--accent-blue); }
+.cell.illegal { opacity: 0.16; cursor: default; }
 
+.mod-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+.mod-chip {
+  cursor: pointer; font-size: 0.75rem; padding: 0.3rem 0.6rem;
+  background: var(--card-alpha); border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+}
 .accent-row { display: flex; gap: 0.4rem; margin-top: 0.55rem; }
 .accent-dot {
   width: 20px; height: 20px; border-radius: 999px; cursor: pointer;
@@ -294,12 +288,130 @@ body {
 }
 .accent-dot.on { border-color: var(--foreground); }
 
-.span-slider { width: 100%; margin-top: 0.5rem; accent-color: var(--accent-blue); }
-.param-choice {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.7rem;
-  background: var(--card); color: var(--foreground); cursor: pointer;
-  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
-  padding: 0.25rem 0.5rem;
+/* ── faces ─────────────────────────────────────────────────────────────
+   Everything a block draws that is not a knob. Each one is sized in the
+   plugin's own pixels, not the app's: these are drawn inside the scaled
+   frame, so a value here is a value in the built plugin. */
+.panel-face { margin-top: 8px; }
+.face-canvas { display: block; width: 100%; }
+.face-meter { width: 34px; }
+
+.fader { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fader-track {
+  position: relative; width: 16px;
+  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 3px;
+}
+.fader-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--plugin-accent); opacity: 0.28; border-radius: 0 0 2px 2px;
+}
+.fader-cap {
+  position: absolute; left: -2px; right: -2px; height: 6px;
+  background: var(--foreground); border-radius: 2px;
+}
+
+/* The patch bay. Rows modulate, columns are modulated, a cell is a cable.
+   The jacks are a fixed square centred in a fluid column: let them stretch and
+   six wide rectangles read as a spreadsheet, which is the opposite of what a
+   patch bay is for. The column stays fluid so the labels have room. */
+.patchbay { display: grid; gap: 3px 2px; align-items: center; width: 100%; }
+.patch-col, .patch-row {
+  font-family: ui-monospace, Menlo, monospace; font-size: 7px;
+  letter-spacing: 0.08em; color: var(--muted-foreground);
+}
+.patch-col { text-align: center; padding-bottom: 2px; }
+.patch-row { text-align: right; padding-right: 5px; }
+.patch-cell {
+  width: 15px; height: 15px; justify-self: center; padding: 0; cursor: pointer;
+  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 999px;
+}
+.patch-cell:hover { border-color: var(--plugin-accent); }
+.patch-cell.on {
+  background: var(--plugin-accent); border-color: var(--plugin-accent);
+  box-shadow: inset 0 0 0 2px var(--card);
+}
+
+/* Steps hold a level, not a flag — a pattern with dynamics is the difference
+   between a sequencer and a metronome. */
+.steps { display: flex; gap: 2px; width: 100%; height: 44px; }
+.steps .step {
+  position: relative; flex: 1; padding: 0; cursor: ns-resize;
+  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 2px;
+  overflow: hidden;
+}
+.steps .step.head { border-color: var(--plugin-accent); }
+.step-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--plugin-accent);
+}
+
+.xy {
+  position: relative; width: 100%; height: 74px; cursor: crosshair;
+  background: var(--mark-panel); border: 1px solid var(--card-border);
+  border-radius: 4px; overflow: hidden;
+}
+.xy-cross { position: absolute; background: var(--card-border); }
+.xy-h { left: 0; right: 0; height: 1px; }
+.xy-v { top: 0; bottom: 0; width: 1px; }
+.xy-dot {
+  position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px; background: var(--plugin-accent);
+}
+
+.keys {
+  position: relative; width: 100%; height: 46px;
+  background: var(--mark-panel); border: 1px solid var(--card-border);
+  border-radius: 3px; overflow: hidden;
+}
+.keys .key-w, .keys .key-b { position: absolute; top: 0; padding: 0; cursor: pointer; }
+/* Two fixed greys rather than theme tokens. Everywhere else in the system a
+   surface follows the theme, but on a keyboard the light/dark contrast IS the
+   affordance — driven by --foreground the black keys came out bright in dark
+   mode and the white keys vanished into the chassis. Both sit on the same 107
+   hue at near-zero chroma, so no new colour enters the system. */
+.keys .key-w {
+  height: 100%; background: oklch(0.86 0.003 107);
+  border: none; border-right: 1px solid oklch(0.19 0.01 95 / 22%);
+}
+.keys .key-b {
+  height: 60%; background: oklch(0.24 0.003 107); border: none;
+  border-radius: 0 0 2px 2px; transform: translateX(-31%); z-index: 1;
+}
+.keys .key-w.on, .keys .key-b.on { background: var(--plugin-accent); }
+
+/* Fixed pad height rather than a square aspect: square pads in a fluid
+   four-column grid grow with the panel, and a 4-wide panel gave a pad grid
+   taller than the plugin window. */
+.pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; width: 100%; max-width: 150px; }
+.pads .pad {
+  height: 20px; padding: 0; cursor: pointer;
+  background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 3px;
+}
+.pads .pad:hover { border-color: var(--card-border-hover); }
+.pads .pad.on { background: var(--plugin-accent); border-color: var(--plugin-accent); }
+
+.readout {
+  width: 100%; padding: 6px 8px;
+  background: var(--mark-screen); border-radius: 4px;
+  font-family: ui-monospace, Menlo, monospace; font-size: 9px;
+  letter-spacing: 0.06em; color: var(--muted-foreground);
+}
+.readout-row { display: flex; justify-content: space-between; line-height: 1.7; }
+.readout-v { color: var(--plugin-accent); }
+
+/* ── palette search ────────────────────────────────────────────────────
+   At forty-eight blocks the rail stops being a list you read and becomes one
+   you hunt through. A filter costs one input and saves every scroll. */
+.palette-search { margin-bottom: 0.9rem; }
+.palette-count {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.56rem;
+  color: var(--muted-foreground); margin: 0.35rem 0 0;
+}
+.palette-item.stub { opacity: 0.62; }
+.palette-face {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.5rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--plugin-accent, var(--accent-blue));
 }
 `
 );

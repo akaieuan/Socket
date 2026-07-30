@@ -1,114 +1,147 @@
-import type { Placed } from "../blocks/catalog";
-import { SIZES, ACCENTS, type PluginState, type Accent } from "../plugin";
+import { byType } from "../model/catalog";
+import { findBlock } from "../model/project";
+import { ACCENTS, SIZES, type Accent } from "../model/types";
+import type { Store } from "../model/useProject";
+import { Field, Hint, IconButton, ListButton, Section, Segmented, Slider, Stack, TextInput } from "../design/controls";
 
 /**
- * Plugin settings when nothing is selected, block settings when something is.
+ * The right rail: project when nothing is selected, block when something is.
  *
- * The plugin half matters more than it looks: window size and accent are the two
- * decisions that shape every layout choice after them, and they had nowhere to
- * live while the face was an unbounded grid.
+ * Both branches compose from the same control vocabulary, so a field in one
+ * looks like a field in the other without either knowing about the other.
  */
-export function Inspector({
-  plugin,
-  setPlugin,
-  block,
-  onParam,
-  onCycle,
-  onSpan,
-}: {
-  plugin: PluginState;
-  setPlugin: (p: PluginState) => void;
-  block: Placed | null;
-  onParam: (id: string, v: number) => void;
-  onCycle: (id: string) => void;
-  onSpan: (span: number) => void;
-}) {
-  if (!block) {
-    return (
-      <>
-        <p className="label">Plugin</p>
+export function Inspector({ store }: { store: Store }) {
+  const { project, selected } = store;
+  const block = selected ? findBlock(project, selected) : null;
 
-        <input
-          className="name-input"
-          value={plugin.name}
-          onChange={(e) => setPlugin({ ...plugin, name: e.target.value })}
-          spellCheck={false}
-        />
+  if (!block) return <ProjectInspector store={store} />;
+  return <BlockInspector store={store} uid={block.uid} />;
+}
 
-        <p className="label section">Window</p>
-        <div className="size-list">
+function ProjectInspector({ store }: { store: Store }) {
+  const { project } = store;
+  return (
+    <>
+      <Section title="Plugin">
+        <Stack>
+          <Field label="Name">
+            <TextInput value={project.name} onChange={store.setName} />
+          </Field>
+        </Stack>
+      </Section>
+
+      <Section title="Window">
+        <div className="list">
           {SIZES.map((s) => (
-            <button
+            <ListButton
               key={s.name}
-              className={`size-btn${plugin.size.name === s.name ? " on" : ""}`}
-              onClick={() => setPlugin({ ...plugin, size: s })}
-            >
-              <span>{s.name}</span>
-              <span className="size-dim">
-                {s.w}×{s.h}
-                {s.from ? ` · ${s.from}` : ""}
-              </span>
-            </button>
+              title={s.name}
+              subtitle={`${s.w}×${s.h}${s.from ? ` · ${s.from}` : ""}`}
+              active={project.size.name === s.name}
+              onClick={() => store.setSize(s)}
+            />
           ))}
         </div>
+      </Section>
 
-        <p className="label section">Accent</p>
+      <Section title="Accent">
         <div className="accent-row">
           {ACCENTS.map((a) => (
             <button
               key={a}
-              className={`accent-dot${plugin.accent === a ? " on" : ""}`}
+              className={`accent-dot${project.accent === a ? " on" : ""}`}
               style={{ background: `var(--accent-${a})` }}
-              onClick={() => setPlugin({ ...plugin, accent: a as Accent })}
+              onClick={() => store.setAccent(a as Accent)}
               aria-label={a}
             />
           ))}
         </div>
+        <Hint>One accent per instrument — the house rule.</Hint>
+      </Section>
 
-        <p className="hint section">
-          One accent per instrument — the house rule. Select a block to edit it, drag a panel to
-          reorder, drag its right edge to resize.
-        </p>
-      </>
-    );
-  }
+      <Section title="Pages">
+        <div className="list">
+          {project.pages.map((pg, i) => (
+            <ListButton
+              key={pg.id}
+              title={pg.name}
+              subtitle={`${pg.blocks.length} blocks`}
+              active={i === store.activePage}
+              onClick={() => store.setActivePage(i)}
+              onRemove={project.pages.length > 1 ? () => store.removePage(i) : undefined}
+            />
+          ))}
+        </div>
+        <button className="add-btn" onClick={store.addPage}>+ Add page</button>
+      </Section>
+    </>
+  );
+}
+
+function BlockInspector({ store, uid }: { store: Store; uid: string }) {
+  const block = findBlock(store.project, uid);
+  if (!block) return null;
+  const def = byType(block.type);
 
   return (
     <>
-      <p className="label">{block.name}</p>
-      <p className="hint">{block.from}</p>
+      <Section title="Block">
+        <Stack>
+          <Field label="Name">
+            <TextInput value={block.name} onChange={(v) => store.renameBlock(uid, v)} />
+          </Field>
+          <Hint>{def?.from}</Hint>
+        </Stack>
+      </Section>
 
-      <p className="label section">Width · {block.span}/12</p>
-      <input
-        className="span-slider"
-        type="range"
-        min={2}
-        max={12}
-        step={1}
-        value={block.span}
-        onChange={(e) => onSpan(Number(e.target.value))}
-      />
+      <Section title={`Width · ${block.span}/12`}>
+        <Slider value={block.span} min={2} max={12} step={1} onChange={(v) => store.setSpan(uid, v)} />
+      </Section>
 
-      {block.params.length > 0 && <p className="label section">Parameters</p>}
-      {block.params.map((p) => (
-        <div className="param" key={p.id}>
-          <span className="param-name">{p.label}</span>
-          {p.kind === "knob" ? (
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={p.value ?? 0}
-              onChange={(e) => onParam(p.id, Number(e.target.value))}
-            />
-          ) : (
-            <button className="param-choice" onClick={() => onCycle(p.id)}>
-              {p.options?.[p.selected ?? 0]}
-            </button>
-          )}
-        </div>
-      ))}
+      <Section title="Ports">
+        <Hint>
+          {def?.ports.audioIn ? "Takes audio. " : ""}
+          {def?.ports.audioOut ? "Produces audio. " : ""}
+          {def?.ports.modOut ? "Produces modulation. " : ""}
+          {!def?.ports.audioIn && !def?.ports.audioOut && !def?.ports.modOut ? "Display only — not in the signal path." : ""}
+        </Hint>
+      </Section>
+
+      {block.params.length > 0 && (
+        <Section title="Parameters">
+          <Hint>What a control is called and where it sits is most of the design work in a panel.</Hint>
+          {block.params.map((p, i) => (
+            <div className="param-edit" key={p.id}>
+              <TextInput value={p.label} onChange={(v) => store.renameParam(uid, p.id, v)} />
+              <div className="param-tools">
+                <IconButton label="↑" onClick={() => store.moveParam(uid, p.id, -1)} disabled={i === 0} />
+                <IconButton label="↓" onClick={() => store.moveParam(uid, p.id, 1)} disabled={i === block.params.length - 1} />
+              </div>
+              {(p.kind === "knob" || p.kind === "fader") && (
+                <Slider value={p.value} onChange={(v) => store.setParam(uid, p.id, v)} />
+              )}
+              {p.kind === "choice" && (
+                <Segmented
+                  options={(p.options ?? []).map((o, k) => ({ value: k, label: o }))}
+                  value={p.value}
+                  onChange={(v) => store.setParam(uid, p.id, v)}
+                />
+              )}
+              {p.kind === "toggle" && (
+                <Segmented
+                  options={[{ value: 0, label: "Off" }, { value: 1, label: "On" }]}
+                  value={p.value > 0.5 ? 1 : 0}
+                  onChange={(v) => store.setParam(uid, p.id, v)}
+                />
+              )}
+            </div>
+          ))}
+        </Section>
+      )}
+
+      <button className="add-btn danger" onClick={() => { store.removeBlock(uid); store.setSelected(null); }}>
+        Remove block
+      </button>
     </>
   );
 }

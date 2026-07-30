@@ -1,47 +1,50 @@
 import type { ReactNode } from "react";
-import type { PluginState } from "../plugin";
+import type { Project } from "../model/types";
 
 /**
- * The plugin window itself.
+ * The plugin window.
  *
- * Draws the chrome the instruments actually have — a wordmark, a preset strip,
- * page tabs, an output meter — so the thing being laid out reads as a plugin
- * rather than as a container. None of it is functional; it is there because a
- * layout without its surroundings is not a layout you can judge.
+ * Its tabs are real now — clicking one switches the page being laid out, the way
+ * it would in the built plugin. Painted-on tabs were the tell that this was a
+ * layout tool rather than an editor: a plugin is not one face, and pretending
+ * otherwise means the second page has nowhere to exist.
  *
- * Scaled to fit rather than scrolled. A plugin editor is fixed-size, and seeing
- * the whole face at once is the entire reason for having a frame — cropping it
- * would put back the problem the frame exists to solve.
+ * Scaled to fit rather than scrolled, because a plugin editor is fixed-size and
+ * seeing all of it at once is the whole reason for having a frame.
  */
 export function Frame({
-  plugin,
-  scale,
-  children,
+  project, page, onPage, scale, children,
 }: {
-  plugin: PluginState;
+  project: Project;
+  page: number;
+  onPage: (i: number) => void;
   scale: number;
   children: ReactNode;
 }) {
   return (
-    <div
-      className="frame-scaler"
-      style={{ width: plugin.size.w * scale, height: plugin.size.h * scale }}
-    >
+    <div className="frame-scaler" style={{ width: project.size.w * scale, height: project.size.h * scale }}>
       <div
         className="frame"
         style={{
-          width: plugin.size.w,
-          height: plugin.size.h,
+          width: project.size.w,
+          height: project.size.h,
           transform: `scale(${scale})`,
-          ["--plugin-accent" as string]: `var(--accent-${plugin.accent})`,
+          ["--plugin-accent" as string]: `var(--accent-${project.accent})`,
         }}
       >
         <header className="frame-head">
-          <span className="frame-word">{plugin.name}</span>
+          <span className="frame-word">{project.name}</span>
           <span className="frame-preset">Init</span>
           <span className="frame-tabs">
-            <span className="frame-tab on">Main</span>
-            <span className="frame-tab">FX</span>
+            {project.pages.map((pg, i) => (
+              <button
+                key={pg.id}
+                className={`frame-tab${i === page ? " on" : ""}`}
+                onClick={(e) => { e.stopPropagation(); onPage(i); }}
+              >
+                {pg.name}
+              </button>
+            ))}
           </span>
           <span className="frame-meter" />
         </header>
@@ -49,7 +52,8 @@ export function Frame({
         <div className="frame-body">{children}</div>
 
         <footer className="frame-foot">
-          <span>{plugin.size.w} × {plugin.size.h}</span>
+          <span>{project.size.w} × {project.size.h}</span>
+          <span>{project.pages[page]?.blocks.length ?? 0} blocks on {project.pages[page]?.name}</span>
         </footer>
       </div>
     </div>
