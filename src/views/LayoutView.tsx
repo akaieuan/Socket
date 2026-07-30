@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Frame } from "../components/Frame";
 import { Panel } from "../components/Panel";
 import type { Store } from "../model/useProject";
+
+/** One grid row unit, and the gap between them. Together they set the step. */
+export const ROW = 8;
+export const GAP = 8;
 
 /**
  * Laying out one page of the plugin.
@@ -17,8 +21,9 @@ export function LayoutView({ store, dragType, onDropBlock }: {
 }) {
   const { project, activePage, selected } = store;
   const stage = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [reorder, setReorder] = useState<{ from: string; over: string | null }>({ from: "", over: null });
+  const [dragging, setDragging] = useState<string | null>(null);
 
   useEffect(() => {
     const el = stage.current;
@@ -34,14 +39,7 @@ export function LayoutView({ store, dragType, onDropBlock }: {
   }, [project.size]);
 
   const page = project.pages[activePage];
-  const gridWidth = project.size.w - 24;
-
-  const commit = () => {
-    if (reorder.from && reorder.over && reorder.from !== reorder.over) {
-      store.reorder(reorder.from, reorder.over);
-    }
-    setReorder({ from: "", over: null });
-  };
+  useFlip(body, page?.blocks.map((b) => b.uid).join() ?? "");
 
   return (
     <div
@@ -51,7 +49,7 @@ export function LayoutView({ store, dragType, onDropBlock }: {
       onDrop={() => dragType && onDropBlock()}
       onPointerDown={() => store.setSelected(null)}
     >
-      <Frame project={project} page={activePage} onPage={store.setActivePage} scale={scale}>
+      <Frame project={project} page={activePage} onPage={store.setActivePage} scale={scale} bodyRef={body}>
         {(page?.blocks.length ?? 0) === 0 && (
           <p className="empty">Drag a block in, or click one on the left.</p>
         )}
@@ -59,20 +57,71 @@ export function LayoutView({ store, dragType, onDropBlock }: {
           <Panel
             key={b.uid}
             block={b}
-            gridWidth={gridWidth}
+            gridWidth={project.size.w - 24}
+            rowStep={(ROW + GAP) * scale}
             selected={b.uid === selected}
+            dragging={b.uid === dragging}
             wired={project.wires.some((w) => w.from === b.uid || w.to === b.uid)}
             onSelect={() => store.setSelected(b.uid)}
             onParam={(id, v) => store.setParam(b.uid, id, v)}
             onFace={(v) => store.setFace(b.uid, v)}
-            onSpan={(s) => store.setSpan(b.uid, s)}
+            onBox={(span, rows) => store.setBox(b.uid, span, rows)}
             onRemove={() => { store.removeBlock(b.uid); if (selected === b.uid) store.setSelected(null); }}
-            onDragStart={() => setReorder({ from: b.uid, over: null })}
-            onDragOver={() => setReorder((r) => (r.over === b.uid ? r : { ...r, over: b.uid }))}
-            onDrop={commit}
+            onDragStart={() => setDragging(b.uid)}
+            onDragEnd={() => setDragging(null)}
+            /* Reordering happens on hover, not on drop. Blocks moving out of
+               the way as you pass over them is what makes placement read as
+               magnetic; committing on release means nothing moves until it is
+               already too late to change your mind. */
+            onDragOver={() => { if (dragging && dragging !== b.uid) store.reorder(dragging, b.uid); }}
           />
         ))}
       </Frame>
     </div>
   );
+}
+
+/**
+ * FLIP: make the grid's reflow look like movement.
+ *
+ * Grid items do not transition between cells — a reorder is an instant jump,
+ * and a jump reads as a glitch rather than as a block making room. So measure
+ * where everything was, let React place it, then put each panel back where it
+ * started with a transform and release it. The browser animates the release.
+ *
+ * Keyed on the uid order so it only runs when the arrangement actually changed.
+ * Running it on every render would fight the resize grips, which change a
+ * panel's box every frame on purpose.
+ */
+function useFlip(container: React.RefObject<HTMLDivElement | null>, order: string) {
+  const before = useRef(new Map<string, DOMRect>());
+
+  useLayoutEffect(() => {
+    const root = container.current;
+    if (!root) return;
+    const panels = [...root.querySelectorAll<HTMLElement>("[data-uid]")];
+
+    for (const el of panels) {
+      const uid = el.dataset.uid!;
+      const was = before.current.get(uid);
+      const now = el.getBoundingClientRect();
+
+      if (was) {
+        const dx = was.left - now.left, dy = was.top - now.top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = "transform 180ms cubic-bezier(0.2, 0, 0, 1)";
+            el.style.transform = "";
+          });
+        }
+      }
+      before.current.set(uid, now);
+    }
+
+    // Panels that left take their measurement with them.
+    const live = new Set(panels.map((el) => el.dataset.uid));
+    for (const uid of [...before.current.keys()]) if (!live.has(uid)) before.current.delete(uid);
+  }, [order, container]);
 }

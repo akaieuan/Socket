@@ -13,13 +13,15 @@ import type { Project } from "../model/types";
  * seeing all of it at once is the whole reason for having a frame.
  */
 export function Frame({
-  project, page, onPage, scale, children,
+  project, page, onPage, scale, children, bodyRef,
 }: {
   project: Project;
   page: number;
   onPage: (i: number) => void;
   scale: number;
   children: ReactNode;
+  /** The grid itself, so the layout view can measure it for FLIP. */
+  bodyRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="frame-scaler" style={{ width: project.size.w * scale, height: project.size.h * scale }}>
@@ -49,7 +51,7 @@ export function Frame({
           <span className="frame-meter" />
         </header>
 
-        <div className="frame-body">{children}</div>
+        <div className="frame-body" ref={bodyRef}>{children}</div>
 
         <footer className="frame-foot">
           <span>{project.size.w} × {project.size.h}</span>

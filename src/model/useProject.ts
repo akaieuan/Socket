@@ -119,6 +119,8 @@ export function useProject() {
 
     patchBlock,
     setSpan: (uid: string, span: number) => patchBlock(uid, (b) => ({ ...b, span })),
+    setRows: (uid: string, rows: number) => patchBlock(uid, (b) => ({ ...b, rows })),
+    setBox: (uid: string, span: number, rows: number) => patchBlock(uid, (b) => ({ ...b, span, rows })),
     renameBlock: (uid: string, name: string) => patchBlock(uid, (b) => ({ ...b, name })),
 
     /** Face-local state — a patch point, a step level, an XY position. */

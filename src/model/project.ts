@@ -1,4 +1,4 @@
-import { byType, CATALOG } from "./catalog";
+import { byType, CATALOG, rowsFor } from "./catalog";
 import type { BlockInstance, Page, Project } from "./types";
 import { SIZES } from "./types";
 
@@ -21,6 +21,7 @@ export function instantiate(type: string): BlockInstance | null {
     type,
     name: def.name,
     span: def.defaultSpan,
+    rows: rowsFor(def),
     params: def.params.map((p, i) => ({ ...p, id: `${p.label.toLowerCase()}-${i}` })),
     face: [],
   };

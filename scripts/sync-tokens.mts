@@ -32,12 +32,33 @@ const tokens = JSON.parse(fs.readFileSync(SOURCE, "utf-8")) as {
   themes: Theme[];
 };
 
+/**
+ * The canvas the plugin window sits on.
+ *
+ * Socket-only, so it is derived here rather than added to akaVST's tokens — the
+ * site has no plugin canvas to put behind anything. Without it the stage and the
+ * plugin are the same colour and the window does not read as sitting on a
+ * surface at all; it reads as the app having a border in the middle of it.
+ *
+ * Both are the theme's own ink at low alpha over the app background, which is
+ * the convention every other surface token here already follows. Dark recesses
+ * (the plugin is the lit thing); paper deepens toward grey (the plugin is the
+ * white sheet). The 107 hue at near-zero chroma keeps them untinted.
+ */
+const STAGE: Record<string, [string, string]> = {
+  // scheme: [stage surface, the grid dot on it]
+  dark: ["oklch(0.1 0.002 107)", "oklch(1 0 0 / 5%)"],
+  light: ["oklch(0.885 0.003 107)", "oklch(0.19 0.01 95 / 9%)"],
+};
+
 const block = (selector: string, theme: Theme, radii: boolean) =>
   [
     `${selector} {`,
     `  color-scheme: ${theme.scheme};`,
     ...Object.entries(theme.css).map(([k, v]) => `  ${k}: ${v};`),
     ...(radii ? Object.entries(tokens.radii).map(([k, v]) => `  --${k}: ${v};`) : []),
+    `  --stage: ${STAGE[theme.scheme]![0]};`,
+    `  --stage-dot: ${STAGE[theme.scheme]![1]};`,
     "}",
   ].join("\n");
 
@@ -172,13 +193,30 @@ button { font: inherit; color: inherit; }
 .palette-from { font-family: ui-monospace, Menlo, monospace; font-size: 0.56rem; color: var(--muted-foreground); }
 
 /* ── the plugin window ─────────────────────────────────────────────── */
-.stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+/* The canvas. A dot grid on its own surface, so the plugin window reads as an
+   object placed on something rather than as a rectangle drawn on the app. The
+   grid also gives the eye a fixed reference while a panel is being dragged. */
+.stage {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  background-color: var(--stage);
+  background-image: radial-gradient(var(--stage-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: -1px -1px;
+}
+/* Same surface behind the routing matrix, so switching views does not switch
+   the room you are standing in. */
+.scroll { background: var(--stage); }
 .frame-scaler { position: relative; flex: none; }
+/* The one shadow in the app. Everywhere else depth is a border — that is the
+   house rule and it holds for cards sitting *in* a layout. This is a window
+   sitting *on* a canvas, which is a different claim, and it is the claim every
+   DAW makes about a plugin. Kept soft: the border still does most of the work. */
 .frame {
   position: absolute; top: 0; left: 0; transform-origin: top left;
   display: flex; flex-direction: column;
   background: var(--background);
   border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 18%), 0 18px 48px -12px oklch(0 0 0 / 38%);
 }
 .frame-head {
   display: flex; align-items: center; gap: 14px; flex: none;
@@ -202,9 +240,18 @@ button { font: inherit; color: inherit; }
   margin-left: auto; width: 120px; height: 5px; border-radius: 3px;
   background: linear-gradient(90deg, var(--plugin-accent) 40%, var(--card) 40%);
 }
+/* Twelve columns and an 8px row unit. Rows are explicit because a width-only
+   block makes every row as tall as its tallest member, which is why the first
+   layouts came out as uniform horizontal bands — the grid was doing the
+   composing rather than the person. */
 .frame-body {
   flex: 1; min-height: 0; overflow: auto; padding: 12px;
-  display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-content: start;
+  display: grid; grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 8px; gap: 8px; align-content: start;
+  /* Dense, so a short block backfills the hole a tall one leaves beside it.
+     Sparse placement is what turns a mixed-height bento into a column of gaps,
+     and a gap you did not ask for is the dead space this was meant to fix. */
+  grid-auto-flow: row dense;
 }
 .frame-foot {
   flex: none; height: 22px; display: flex; align-items: center; gap: 16px;
@@ -213,7 +260,7 @@ button { font: inherit; color: inherit; }
   letter-spacing: 0.1em; color: var(--muted-foreground);
 }
 .empty {
-  grid-column: span 12; color: var(--muted-foreground); font-size: 13px;
+  grid-column: span 12; grid-row: span 8; color: var(--muted-foreground); font-size: 13px;
   border: 1px dashed var(--card-border); border-radius: var(--radius-card);
   padding: 2.5rem; text-align: center;
 }
@@ -223,15 +270,23 @@ button { font: inherit; color: inherit; }
    rather than off the window. A four-knob envelope stretched to half the plugin
    used to leave two thirds of itself empty: the fix is not more knobs, it is
    controls that grow into the room they are given, which is what hardware does
-   and what a fixed pixel size in JS can never do. */
+   and what a fixed pixel size in JS can never do.
+   A flex column, so height behaves the same way — the face takes what is left
+   over and the controls sit under it, instead of everything hugging the top
+   with a hole beneath. */
 .panel {
   container-type: inline-size;
-  position: relative; min-width: 0; cursor: grab;
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
   border: 1px solid var(--card-border); border-radius: var(--radius-card);
   background: var(--card-alpha); padding: 7px 9px 10px;
 }
 .panel-selected { border-color: var(--plugin-accent); }
-.panel-head { display: flex; align-items: center; gap: 6px; }
+.panel-dragging { opacity: 0.4; }
+/* The header is the handle: a window is dragged by its title bar so that
+   reaching for a control inside it does not move the window. */
+.panel-head { display: flex; align-items: center; gap: 6px; flex: none; cursor: grab; }
+.panel-head:active { cursor: grabbing; }
 .panel-tab { width: 3px; height: 11px; border-radius: 1px; background: var(--plugin-accent); flex: none; }
 .panel-wired { width: 5px; height: 5px; border-radius: 999px; background: var(--accent-green); }
 .panel-remove {
@@ -244,19 +299,46 @@ button { font: inherit; color: inherit; }
    one the free space is shared out and six knobs read as a laid-out row instead
    of a huddle with a third of the panel empty beside it. */
 .panel-body {
-  display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start;
-  justify-content: space-evenly; gap: clamp(9px, 2.6cqi, 30px); margin-top: 9px;
+  flex: none; display: flex; flex-wrap: wrap; align-items: flex-start;
+  align-content: center; justify-content: space-evenly;
+  gap: clamp(9px, 2.6cqi, 30px); margin-top: 9px;
 }
+/* With no face above them the controls own the whole panel, so extra height
+   reads as breathing room rather than as a gap under a huddle. */
+.panel-body-fill { flex: 1; min-height: 0; }
 /* One control has no distribution to do, and centring it in a wide panel just
    strands it. */
 .panel-body:has(> :only-child) { justify-content: flex-start; }
-/* Resize by the edge: dragging it is laying out, a row of buttons only
-   describes a layout. */
-.panel-grip {
-  position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: ew-resize;
+/* Resize by the edge: dragging one is laying out, a row of buttons only
+   describes a layout. Right for columns, bottom for rows, corner for both. */
+.grip { position: absolute; z-index: 2; }
+.grip::after {
+  content: ""; position: absolute; inset: 0; opacity: 0;
+  background: var(--plugin-accent); transition: opacity 120ms ease;
+}
+.grip:hover::after, .grip:active::after { opacity: 0.35; }
+.grip-x {
+  top: 0; right: 0; width: 8px; height: 100%; cursor: ew-resize;
   border-radius: 0 var(--radius-card) var(--radius-card) 0;
 }
-.panel-grip:hover { background: var(--plugin-accent); opacity: 0.35; }
+.grip-y {
+  left: 0; bottom: 0; height: 8px; width: 100%; cursor: ns-resize;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+.grip-xy {
+  right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+  border-radius: 0 0 var(--radius-card) 0;
+}
+/* The corner earns a mark, because a corner with no affordance is one nobody
+   finds. Three pips, in the pixel grammar. */
+.grip-xy::before {
+  content: ""; position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px;
+  opacity: 0.55;
+  background:
+    linear-gradient(var(--muted-foreground) 0 0) 100% 100% / 2px 2px no-repeat,
+    linear-gradient(var(--muted-foreground) 0 0) 100% 40% / 2px 2px no-repeat,
+    linear-gradient(var(--muted-foreground) 0 0) 40% 100% / 2px 2px no-repeat;
+}
 
 .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .knob svg { display: block; width: clamp(34px, 6.5cqi, 62px); height: auto; }
@@ -319,15 +401,18 @@ button { font: inherit; color: inherit; }
    Everything a block draws that is not a knob. Each one is sized in the
    plugin's own pixels, not the app's: these are drawn inside the scaled
    frame, so a value here is a value in the built plugin. */
-/* Faces grow with the panel as well — a screen that stays 62px tall inside a
-   panel twice as wide reads as a strip, not a display. */
-.panel-face { margin-top: 8px; }
-.face-canvas { display: block; width: 100%; }
-.face-screen   { height: clamp(56px, 11cqi, 128px); }
-.face-scope    { height: clamp(50px, 9cqi, 104px); }
-.face-spectrum { height: clamp(48px, 9cqi, 104px); }
-.face-curve    { height: clamp(46px, 8cqi, 96px); }
-.face-meter    { height: clamp(52px, 10cqi, 96px); width: clamp(30px, 5cqi, 46px); }
+/* The face absorbs whatever height is left over. Dragging a panel taller makes
+   its screen bigger, which is the only sane answer to what the extra room is
+   for — a display pinned to 62px inside a panel twice as tall just opens a gap
+   under itself. The clamps below are floors, not sizes. */
+.panel-face { flex: 1; min-height: 0; margin-top: 8px; display: flex; }
+.panel-face > * { flex: 1; min-height: 0; min-width: 0; }
+.face-canvas { display: block; width: 100%; height: 100%; }
+.face-screen   { min-height: clamp(46px, 9cqi, 96px); }
+.face-scope    { min-height: clamp(42px, 8cqi, 88px); }
+.face-spectrum { min-height: clamp(40px, 8cqi, 88px); }
+.face-curve    { min-height: clamp(38px, 7cqi, 80px); }
+.face-meter    { min-height: 44px; flex: none; width: clamp(30px, 5cqi, 46px); }
 
 .fader { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .fader-track {
@@ -347,7 +432,7 @@ button { font: inherit; color: inherit; }
    The jacks are a fixed square centred in a fluid column: let them stretch and
    six wide rectangles read as a spreadsheet, which is the opposite of what a
    patch bay is for. The column stays fluid so the labels have room. */
-.patchbay { display: grid; gap: 3px 2px; align-items: center; width: 100%; }
+.patchbay { display: grid; gap: 3px 2px; align-content: center; align-items: center; width: 100%; }
 .patch-col, .patch-row {
   font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 1cqi, 10px);
   letter-spacing: 0.08em; color: var(--muted-foreground);
@@ -366,7 +451,7 @@ button { font: inherit; color: inherit; }
 
 /* Steps hold a level, not a flag — a pattern with dynamics is the difference
    between a sequencer and a metronome. */
-.steps { display: flex; gap: 2px; width: 100%; height: clamp(38px, 7cqi, 78px); }
+.steps { display: flex; gap: 2px; width: 100%; min-height: clamp(34px, 6cqi, 70px); }
 .steps .step {
   position: relative; flex: 1; padding: 0; cursor: ns-resize;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 2px;
@@ -379,7 +464,7 @@ button { font: inherit; color: inherit; }
 }
 
 .xy {
-  position: relative; width: 100%; height: clamp(64px, 13cqi, 130px); cursor: crosshair;
+  position: relative; width: 100%; min-height: clamp(56px, 11cqi, 120px); cursor: crosshair;
   background: var(--mark-panel); border: 1px solid var(--card-border);
   border-radius: 4px; overflow: hidden;
 }
@@ -395,7 +480,7 @@ button { font: inherit; color: inherit; }
 }
 
 .keys {
-  position: relative; width: 100%; height: clamp(40px, 8cqi, 86px);
+  position: relative; width: 100%; min-height: clamp(36px, 7cqi, 80px);
   background: var(--mark-panel); border: 1px solid var(--card-border);
   border-radius: 3px; overflow: hidden;
 }
@@ -418,7 +503,7 @@ button { font: inherit; color: inherit; }
 /* Fixed pad height rather than a square aspect: square pads in a fluid
    four-column grid grow with the panel, and a 4-wide panel gave a pad grid
    taller than the plugin window. */
-.pads { display: grid; gap: 3px; width: 100%; }
+.pads { display: grid; gap: 3px; width: 100%; align-content: center; }
 .pads .pad {
   height: clamp(18px, 3.4cqi, 34px); padding: 0; cursor: pointer;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 3px;
@@ -427,7 +512,7 @@ button { font: inherit; color: inherit; }
 .pads .pad.on { background: var(--plugin-accent); border-color: var(--plugin-accent); }
 
 .readout {
-  width: 100%; padding: clamp(6px, 1.2cqi, 12px) clamp(8px, 1.6cqi, 16px);
+  width: 100%; align-self: center; padding: clamp(6px, 1.2cqi, 12px) clamp(8px, 1.6cqi, 16px);
   background: var(--mark-screen); border-radius: 4px;
   font-family: ui-monospace, Menlo, monospace; font-size: clamp(9px, 1.3cqi, 13px);
   letter-spacing: 0.06em; color: var(--muted-foreground);

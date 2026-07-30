@@ -56,6 +56,9 @@ export type BlockDef = {
   defaultSpan: number;
   /** Minimum columns this block reads at — a patch bay at 3 wide is unusable. */
   minSpan?: number;
+  /** Row units, if the derived height is wrong for this one. */
+  defaultRows?: number;
+  minRows?: number;
   face?: Face;
   params: Omit<Param, "id">[];
 };
@@ -66,6 +69,14 @@ export type BlockInstance = {
   /** Overrides the definition's name, so two filters can be told apart. */
   name: string;
   span: number;
+  /**
+   * Height, in grid row units.
+   *
+   * A width-only block makes every row the height of its tallest member, which
+   * is why the first layouts came out as uniform bands — the grid was doing the
+   * composing, not the person. Height is the other half of a bento.
+   */
+  rows: number;
   params: Param[];
   /**
    * Face-local state — a patch point, a step pattern, an XY position.

@@ -290,6 +290,30 @@ export const CATALOG: BlockDef[] = [
   },
 ];
 
+/**
+ * How much height each face wants before it starts looking cramped, in row
+ * units. A face absorbs whatever height is left over, so these are floors
+ * rather than fixed sizes.
+ */
+const FACE_ROWS: Record<string, number> = {
+  screen: 5, scope: 4, spectrum: 4, curve: 4, meter: 4,
+  matrix: 8, steps: 4, xy: 6, keys: 4, pads: 5, readout: 4,
+};
+
+/**
+ * A block's starting height.
+ *
+ * Derived rather than authored forty-nine times: a header, whatever the face
+ * needs, and a row for the controls. Getting this close means a fresh block
+ * lands snug instead of arriving with a hole in it that you then have to drag
+ * shut — which was most of the dead space in the first layouts.
+ */
+export const rowsFor = (def: BlockDef) =>
+  def.defaultRows ?? Math.max(def.minRows ?? 3, 2 + (def.face ? FACE_ROWS[def.face] ?? 4 : 0) + (def.params.length ? 4 : 0));
+
+export const minRowsFor = (def: BlockDef) =>
+  def.minRows ?? Math.max(3, (def.face ? Math.ceil((FACE_ROWS[def.face] ?? 4) / 2) + 2 : 0) + (def.params.length ? 3 : 0));
+
 export const byType = (type: string) => CATALOG.find((d) => d.type === type);
 
 export { GROUPS } from "./types";
