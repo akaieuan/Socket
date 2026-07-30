@@ -11,7 +11,9 @@
     "start": "pnpm build && electron .",
     "typecheck": "tsc --noEmit",
     "sync:tokens": "node --experimental-strip-types scripts/sync-tokens.mts",
-    "verify": "pnpm typecheck && pnpm build"
+    "verify": "pnpm typecheck && pnpm check:blocks && pnpm build",
+    "sync:blocks": "node --experimental-strip-types scripts/sync-blocks.mts",
+    "check:blocks": "node --experimental-strip-types scripts/sync-blocks.mts --check"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

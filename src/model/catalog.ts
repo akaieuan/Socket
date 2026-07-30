@@ -1,4 +1,4 @@
-import type { BlockDef, Param } from "./types";
+import type { BlockDef, Param } from "./types.ts";
 
 /**
  * The block catalogue.
@@ -316,4 +316,4 @@ export const minRowsFor = (def: BlockDef) =>
 
 export const byType = (type: string) => CATALOG.find((d) => d.type === type);
 
-export { GROUPS } from "./types";
+export { GROUPS } from "./types.ts";

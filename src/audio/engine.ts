@@ -1,5 +1,6 @@
 import { byType } from "@/model/catalog";
 import type { Project } from "@/model/types";
+import { BLOCK_TYPE } from "./blocks.generated";
 
 /**
  * The main-thread side of the audio engine.
@@ -9,13 +10,19 @@ import type { Project } from "@/model/types";
  * the other side of the port; this is only plumbing.
  */
 
-/** Must match `aka::dsp::BlockType`. Generated from one source in a later pass. */
-export const BLOCK_TYPE: Record<string, number> = {
-  osc: 1, sub: 2, noise: 3, filter: 4, drive: 5, env: 6, lfo: 7, out: 8,
-};
+export { BLOCK_TYPE };
 
-/** Whether a block has an engine yet. The rest are still drawings. */
-export const hasEngine = (type: string) => BLOCK_TYPE[type] !== undefined;
+/**
+ * Blocks that make a sound today.
+ *
+ * Every block has a type number — the enum covers the whole catalogue so that
+ * implementing one never renumbers the others — but only these have an engine
+ * behind them. The engine skips the rest, and this list is what the interface
+ * uses to say so.
+ */
+export const IMPLEMENTED = new Set(["osc", "sub", "noise", "filter", "drive", "env", "lfo", "out"]);
+
+export const hasEngine = (type: string) => IMPLEMENTED.has(type);
 
 type Message =
   | { type: "blocks"; types: number[] }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { CATALOG } from "@/model/catalog";
+import { hasEngine } from "@/audio";
 import { GROUPS, type Group } from "@/model/types";
 import type { Store } from "@/model/useProject";
 import { GroupIcon, Icon, type IconName } from "@/design/PixelIcon";
@@ -162,18 +163,22 @@ export function AppSidebar({
                                       onDragStart={() => onDragBlock(def.type)}
                                       onDragEnd={() => onDragBlock(null)}
                                       onClick={() => onAdd(def.type)}
-                                      title={`${def.name} — ${def.from}`}
-                                      /* Blocks with no DSP behind them are
-                                         dimmed rather than hidden. You can build
-                                         with them — that is the point of
-                                         building the tool first — but you should
-                                         never be unsure which half of your
-                                         instrument exists. */
-                                      className={`w-full cursor-grab text-left ${
-                                        def.from.startsWith("—") ? "text-muted-foreground/70" : ""
-                                      }`}
+                                      title={
+                                        hasEngine(def.type)
+                                          ? `${def.name} — makes a sound · ${def.from}`
+                                          : `${def.name} — no engine yet · ${def.from}`
+                                      }
+                                      className="flex w-full cursor-grab items-center gap-2 text-left"
                                     >
-                                      {def.name}
+                                      <span className="truncate">{def.name}</span>
+                                      {/* A dot on the ones that sound, rather
+                                          than dimming the ones that do not.
+                                          Eight of forty-nine have engines, and
+                                          dimming forty-one reads as a broken
+                                          palette instead of an honest one. */}
+                                      {hasEngine(def.type) && (
+                                        <span className="bg-accent-green ml-auto size-1 shrink-0 rounded-full" />
+                                      )}
                                     </button>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>

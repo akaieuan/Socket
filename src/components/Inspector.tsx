@@ -1,4 +1,5 @@
 import { Icon } from "@/design/PixelIcon";
+import { hasEngine } from "@/audio";
 import { byType } from "@/model/catalog";
 import { findBlock } from "@/model/project";
 import { ACCENTS, SIZES, type Accent } from "@/model/types";
@@ -174,7 +175,14 @@ function BlockInspector({ store, uid }: { store: Store; uid: string }) {
         }
       >
         <Input value={block.name} onChange={(e) => store.renameBlock(uid, e.target.value)} spellCheck={false} />
-        <p className="text-muted-foreground mt-1.5 font-mono text-[10px]">{def?.from}</p>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span
+            className={`size-1 shrink-0 rounded-full ${hasEngine(block.type) ? "bg-accent-green" : "bg-muted-foreground/50"}`}
+          />
+          <p className="text-muted-foreground font-mono text-[10px]">
+            {hasEngine(block.type) ? "makes a sound" : "no engine yet"} · {def?.from}
+          </p>
+        </div>
       </Section>
 
       <Separator />
