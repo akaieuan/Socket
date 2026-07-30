@@ -143,6 +143,10 @@ button { font: inherit; color: inherit; }
    that row move the window and every control opts back out. Without this you
    cannot grab the top of the window at all. */
 .drag-region { -webkit-app-region: drag; }
+/* The traffic lights float over the app at the top left, which is now the
+   sidebar. Their room comes out of its header, and nothing may sit there. */
+[data-slot="sidebar-header"] { padding-top: 30px; -webkit-app-region: drag; }
+[data-slot="sidebar-header"] > * { -webkit-app-region: no-drag; }
 .drag-region button,
 .drag-region input,
 .drag-region [role="group"],

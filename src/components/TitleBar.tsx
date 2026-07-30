@@ -1,14 +1,14 @@
-import { Check, ChevronDown, LayoutGrid, Moon, Save, Settings, Sun, Waypoints } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Store } from "@/model/useProject";
+import { Icon } from "@/design/PixelIcon";
 
 export type View = "layout" | "signal";
 export type Theme = "dark" | "light";
@@ -36,34 +36,39 @@ export function TitleBar({
   onTheme: (t: Theme) => void;
 }) {
   const { project } = store;
+  const { toggleSidebar } = useSidebar();
   const blocks = project.pages.reduce((n, p) => n + p.blocks.length, 0);
 
+  // The sidebar starts under the traffic lights, so the toolbar only clears
+  // them when the sidebar is collapsed; the padding is on the window shell.
   return (
-    <header className="drag-region border-hairline flex h-11 flex-none items-center gap-2 border-b pr-2 pl-[88px]">
-      <span className="no-drag text-[15px] font-light tracking-tight">socket</span>
+    <header className="drag-region border-hairline flex h-9 flex-none items-center gap-1 border-b px-1.5">
+      <Button variant="ghost" size="icon-sm" className="no-drag" onClick={toggleSidebar} aria-label="Toggle sidebar">
+        <Icon name="panel" />
+      </Button>
 
-      <Separator orientation="vertical" className="no-drag mx-1 !h-4" />
+      <Separator orientation="vertical" className="no-drag mx-0.5 !h-4" />
 
       {/* The document, named the way a desktop app names one: the file, then
           what has happened to it. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="no-drag gap-1.5 font-normal">
+          <Button variant="ghost" size="sm" className="no-drag h-6 gap-1.5 px-1.5 text-[12px] font-normal">
             {project.name}
             <span className="text-muted-foreground font-mono text-[10px]">
               {project.pages.length}p · {blocks}b
             </span>
-            <ChevronDown className="text-muted-foreground" />
+            <Icon name="chevronDown" className="text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-52">
           <DropdownMenuLabel>Project</DropdownMenuLabel>
           <DropdownMenuItem>
-            <Save /> Save
+            <Icon name="save" /> Save
             <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem>
-            Export JUCE project
+            <><Icon name="export" /> Export JUCE project</>
             <DropdownMenuShortcut>⇧⌘E</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -80,15 +85,16 @@ export function TitleBar({
 
       <ToggleGroup
         type="single"
+        size="sm"
         value={view}
         onValueChange={(v) => v && onView(v as View)}
         className="no-drag"
       >
         <ToggleGroupItem value="layout" aria-label="Layout">
-          <LayoutGrid className="size-3" /> Layout
+          <Icon name="layout" />Layout
         </ToggleGroupItem>
         <ToggleGroupItem value="signal" aria-label="Signal">
-          <Waypoints className="size-3" /> Signal
+          <Icon name="signal" />Signal
         </ToggleGroupItem>
       </ToggleGroup>
 
@@ -96,47 +102,17 @@ export function TitleBar({
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             className="no-drag"
             onClick={() => onTheme(theme === "dark" ? "light" : "dark")}
             aria-label="Toggle theme"
           >
-            {theme === "dark" ? <Moon /> : <Sun />}
+            <Icon name={theme === "dark" ? "moon" : "sun"} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{theme === "dark" ? "Dark" : "Paper"}</TooltipContent>
       </Tooltip>
 
-      <Separator orientation="vertical" className="no-drag mx-1 !h-4" />
-
-      {/* Dummy for now, but the shape is the real one: the account menu belongs
-          top-right and its absence is the loudest thing missing from an app
-          that is otherwise trying to look finished. */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="no-drag rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-accent-blue/30">
-            <Avatar>
-              <AvatarFallback>ak</AvatarFallback>
-            </Avatar>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <Avatar className="size-8">
-              <AvatarFallback>ak</AvatarFallback>
-            </Avatar>
-            <div className="grid text-[13px] leading-tight">
-              <span>akaieuan</span>
-              <span className="text-muted-foreground font-mono text-[10px]">local workspace</span>
-            </div>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem><Settings /> Preferences</DropdownMenuItem>
-          <DropdownMenuItem>
-            <Check /> Nothing makes sound yet
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </header>
   );
 }

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import { Icon } from "@/design/PixelIcon";
 import { byType } from "@/model/catalog";
 import { findBlock } from "@/model/project";
 import { ACCENTS, SIZES, type Accent } from "@/model/types";
@@ -105,7 +105,7 @@ function ProjectInspector({ store }: { store: Store }) {
         title="Pages"
         action={
           <Button variant="ghost" size="icon-sm" onClick={store.addPage} aria-label="Add page">
-            <Plus />
+            <Icon name="plus" />
           </Button>
         }
       >
@@ -130,7 +130,7 @@ function ProjectInspector({ store }: { store: Store }) {
               </span>
               {project.pages.length > 1 && (
                 <Button variant="ghost" size="icon-sm" onClick={() => store.removePage(i)} aria-label={`Remove ${pg.name}`}>
-                  <X />
+                  <Icon name="close" />
                 </Button>
               )}
             </div>
@@ -169,7 +169,7 @@ function BlockInspector({ store, uid }: { store: Store; uid: string }) {
             onClick={() => { store.removeBlock(uid); store.setSelected(null); }}
             aria-label="Remove block"
           >
-            <Trash2 />
+            <Icon name="trash" />
           </Button>
         }
       >
@@ -226,10 +226,10 @@ function BlockInspector({ store, uid }: { store: Store; uid: string }) {
                   <Input value={p.label} onChange={(e) => store.renameParam(uid, p.id, e.target.value)} spellCheck={false} />
                   <div className="flex">
                     <Button variant="ghost" size="icon-sm" disabled={i === 0} onClick={() => store.moveParam(uid, p.id, -1)} aria-label="Move up">
-                      <ArrowUp />
+                      <Icon name="up" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" disabled={i === block.params.length - 1} onClick={() => store.moveParam(uid, p.id, 1)} aria-label="Move down">
-                      <ArrowDown />
+                      <Icon name="down" />
                     </Button>
                   </div>
 

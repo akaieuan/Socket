@@ -93,10 +93,24 @@ One page holding synth, mod and FX is a whole instrument; so is five. Pages are
 renameable, removable, and a block moves between them from its own inspector.
 Nothing about the catalogue assumes a particular page structure.
 
+## Icons
+
+`design/PixelIcon.tsx` is the whole set, as bitmaps. The instruments' one piece
+of iconography is PixelRack — whole cells, never a curve, never a stroke — so a
+borrowed icon set would be the only thing in the app not speaking the language
+of the screens.
+
+Two rules make them legible: always 14px (seven cells into fourteen pixels is
+exactly two pixels a cell, and a glyph whose cells land on fractions is a
+blurred glyph), and group glyphs keep PixelRack's gap while utility glyphs fill
+their cells — at two pixels a cell the gap eats most of a chevron.
+
+Adding one is a string.
+
 ## shadcn, on the generated tokens
 
 The app shell — title bar, activity rail, inspector, menus, tooltips — is
-shadcn/ui on Tailwind v4. It did not bring a palette with it: `@theme inline`
+shadcn/ui on Tailwind v4, including its Sidebar. It did not bring a palette with it: `@theme inline`
 in the generated stylesheet points every Tailwind colour at the akaVST
 variables, and shadcn's own `--sidebar-*` names are aliases onto them. A
 component dropped in by `npx shadcn@latest add` therefore arrives already
