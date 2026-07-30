@@ -17,7 +17,10 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type Pane = "blocks" | "presets" | "settings";
 
@@ -54,6 +57,8 @@ export function AppSidebar({
   onAdd: (type: string) => void;
   onDragBlock: (type: string | null) => void;
 }) {
+  const { state, toggleSidebar } = useSidebar();
+  const collapsed = state === "collapsed";
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Group[]>(["Source"]);
 
@@ -68,35 +73,28 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" className="border-hairline">
       <SidebarHeader className="gap-1.5">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="data-[state=open]:bg-card-alpha">
-                  <div className="bg-card-alpha border-card-border flex aspect-square size-7 items-center justify-center rounded-md border">
-                    <GroupIcon group="Display" className="size-4" />
-                  </div>
-                  <div className="grid flex-1 text-left leading-tight">
-                    <span className="truncate text-[13px]">{store.project.name}</span>
-                    <span className="text-muted-foreground truncate font-mono text-[9px]">
-                      {store.project.size.w}×{store.project.size.h} · {store.project.pages.length} pages
-                    </span>
-                  </div>
-                  <Icon name="chevronUpDown" className="ml-auto opacity-50" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="bottom" className="w-[--radix-dropdown-menu-trigger-width] min-w-52">
-                <DropdownMenuLabel>Projects</DropdownMenuLabel>
-                <DropdownMenuItem>{store.project.name}</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Icon name="plus" /> New plugin
-                  <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* The collapse control belongs to the sidebar, not to the toolbar. A
+            button somewhere else that happens to affect this panel is a button
+            you have to be told about. */}
+        <div className="flex items-center gap-1">
+          {!collapsed && <ProjectSwitcher store={store} />}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className={collapsed ? "mx-auto" : "text-muted-foreground hover:text-foreground"}
+              >
+                <Icon name={collapsed ? "expand" : "collapse"} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {collapsed ? "Expand" : "Collapse"} · ⌘B
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
         <SidebarMenu>
           {PANES.map(({ id, label, icon }) => (
@@ -233,6 +231,43 @@ export function AppSidebar({
 
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+/**
+ * The project, and what you can do to it.
+ *
+ * Hidden entirely when the sidebar is collapsed rather than reduced to its
+ * glyph: at 44px the name and size are what it is for, and a lone square that
+ * opens a menu is a mystery button.
+ */
+function ProjectSwitcher({ store }: { store: Store }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton size="lg" className="data-[state=open]:bg-card-alpha">
+          <div className="bg-card-alpha border-card-border flex aspect-square size-7 items-center justify-center rounded-md border">
+            <GroupIcon group="Display" className="size-4" />
+          </div>
+          <div className="grid flex-1 text-left leading-tight">
+            <span className="truncate text-[13px]">{store.project.name}</span>
+            <span className="text-muted-foreground truncate font-mono text-[9px]">
+              {store.project.size.w}×{store.project.size.h} · {store.project.pages.length} pages
+            </span>
+          </div>
+          <Icon name="chevronUpDown" className="ml-auto opacity-50" />
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" className="min-w-52">
+        <DropdownMenuLabel>Projects</DropdownMenuLabel>
+        <DropdownMenuItem>{store.project.name}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <Icon name="plus" /> New plugin
+          <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

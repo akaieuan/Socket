@@ -3,8 +3,6 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSidebar } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Store } from "@/model/useProject";
@@ -36,19 +34,10 @@ export function TitleBar({
   onTheme: (t: Theme) => void;
 }) {
   const { project } = store;
-  const { toggleSidebar } = useSidebar();
   const blocks = project.pages.reduce((n, p) => n + p.blocks.length, 0);
 
-  // The sidebar starts under the traffic lights, so the toolbar only clears
-  // them when the sidebar is collapsed; the padding is on the window shell.
   return (
     <header className="drag-region border-hairline flex h-9 flex-none items-center gap-1 border-b px-1.5">
-      <Button variant="ghost" size="icon-sm" className="no-drag" onClick={toggleSidebar} aria-label="Toggle sidebar">
-        <Icon name="panel" />
-      </Button>
-
-      <Separator orientation="vertical" className="no-drag mx-0.5 !h-4" />
-
       {/* The document, named the way a desktop app names one: the file, then
           what has happened to it. */}
       <DropdownMenu>

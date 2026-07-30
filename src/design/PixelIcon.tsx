@@ -141,14 +141,27 @@ export const ICONS = {
     ..###..
     #..#..#
     ...#...`,
-  panel: `
-    #######
-    ##....#
-    ##....#
-    ##....#
-    ##....#
-    ##....#
-    #######`,
+  /* The sidebar's edge, and a chevron saying which way it is about to go.
+     A plain panel outline says "a sidebar exists"; it never said "press this
+     to close it", which is the only thing the button does. The full frame was
+     the first attempt and it is too much information for fourteen pixels —
+     an edge and an arrow is the whole message. */
+  collapse: `
+    #.....#
+    #....#.
+    #...#..
+    #..#...
+    #...#..
+    #....#.
+    #.....#`,
+  expand: `
+    #..#...
+    #...#..
+    #....#.
+    #.....#
+    #....#.
+    #...#..
+    #..#...`,
   plus: `
     .......
     ...#...
