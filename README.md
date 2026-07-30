@@ -3,6 +3,13 @@
 A desktop studio for building audio plugins out of blocks. Electron, React,
 TypeScript, running on port 4200.
 
+![Socket](docs/socket.png)
+
+*Nine blocks on one page at 972×752 — oscillator into filter, delay and reverb,
+a compressor and limiter, an EQ and a spectrum, and bleep's sequencer along the
+bottom. The right panel is editing the sequencer: its size on the grid, which
+page it lives on, and its six parameters.*
+
 You drag blocks onto a plugin window, lay them out on a twelve-column grid, wire
 the signal path, patch modulation with cables, and **hear it**. The engine is
 the same C++ the generated plugin will ship, compiled to WebAssembly — so the
@@ -234,5 +241,3 @@ it — which you would hear, eventually, as the wrong knob doing something.
 - **Parameter locks.** bleep's sequencer has them and this one does not yet. The
   step struct is laid out so they drop in without moving anything, and the
   modulation system they need to lock *to* now exists.
-- **No screenshot in this README.** One belongs at the top; it needs to be taken
-  from a real window rather than a preview pane.
