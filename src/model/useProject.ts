@@ -80,6 +80,29 @@ export function useProject() {
         wires: p.wires.filter((w) => w.from !== uid && w.to !== uid),
       })),
 
+    /**
+     * Move a block to another page.
+     *
+     * Pages are the user's variable, not the tool's: one page holding synth,
+     * mod and FX is a legitimate instrument, and so is five. Without this,
+     * where a block first landed was where it lived forever, which quietly made
+     * the page count a decision you had to get right up front.
+     */
+    moveToPage: (uid: string, to: number) =>
+      edit((p) => {
+        const block = p.pages.flatMap((pg) => pg.blocks).find((b) => b.uid === uid);
+        if (!block || !p.pages[to]) return p;
+        return {
+          ...p,
+          pages: p.pages.map((pg, k) => ({
+            ...pg,
+            blocks: k === to
+              ? [...pg.blocks.filter((b) => b.uid !== uid), block]
+              : pg.blocks.filter((b) => b.uid !== uid),
+          })),
+        };
+      }),
+
     reorder: (from: string, to: string) =>
       edit((p) => ({
         ...p,

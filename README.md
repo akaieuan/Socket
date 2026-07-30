@@ -71,6 +71,28 @@ which put a ceiling on the catalogue at two. They are one registry now
 (`design/faces.tsx`) and face state lives on the block instance, so a patch you
 spent a minute making survives reordering the panel it sits on.
 
+A face reads its own block's parameters, by id rather than by label so renaming
+a knob cannot break it. The screen's Mode, Rate, Tilt and Decay all change what
+it draws; the analyser's Smooth is a real one-pole on each bar; the envelope's
+Curve bends the drawn shape. A display whose controls do nothing is a
+screensaver.
+
+## Panels are containers
+
+A panel is a CSS query container, so knobs, faders, choice boxes, faces and the
+gaps between them all size off the panel rather than the window, and the
+controls distribute across the width instead of huddling at its left edge. Four
+knobs stranded in half a plugin was the symptom; the fix is controls that grow
+into the room they are given, which is what hardware does. Adding parameters to
+fill space would have been the wrong answer — the parameters are whatever the
+DSP has.
+
+## Pages are yours
+
+One page holding synth, mod and FX is a whole instrument; so is five. Pages are
+renameable, removable, and a block moves between them from its own inspector.
+Nothing about the catalogue assumes a particular page structure.
+
 ## Design tokens
 
 The palette is not defined here. `pnpm sync:tokens` reads

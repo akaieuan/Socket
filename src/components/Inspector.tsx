@@ -62,17 +62,29 @@ function ProjectInspector({ store }: { store: Store }) {
       <Section title="Pages">
         <div className="list">
           {project.pages.map((pg, i) => (
-            <ListButton
-              key={pg.id}
-              title={pg.name}
-              subtitle={`${pg.blocks.length} blocks`}
-              active={i === store.activePage}
-              onClick={() => store.setActivePage(i)}
-              onRemove={project.pages.length > 1 ? () => store.removePage(i) : undefined}
-            />
+            <div className={`page-row${i === store.activePage ? " on" : ""}`} key={pg.id}>
+              <button
+                className="page-dot"
+                onClick={() => store.setActivePage(i)}
+                aria-label={`Show ${pg.name}`}
+                title={`${pg.blocks.length} blocks`}
+              />
+              <TextInput
+                value={pg.name}
+                onChange={(v) => store.renamePage(i, v)}
+                onFocus={() => store.setActivePage(i)}
+              />
+              {project.pages.length > 1 && (
+                <IconButton label="×" onClick={() => store.removePage(i)} />
+              )}
+            </div>
           ))}
         </div>
         <button className="add-btn" onClick={store.addPage}>+ Add page</button>
+        <Hint>
+          Yours to decide. One page holding synth, mod and FX is a whole instrument; so is five. A
+          block moves between them from its own panel.
+        </Hint>
       </Section>
     </>
   );
@@ -96,6 +108,14 @@ function BlockInspector({ store, uid }: { store: Store; uid: string }) {
 
       <Section title={`Width · ${block.span}/12`}>
         <Slider value={block.span} min={2} max={12} step={1} onChange={(v) => store.setSpan(uid, v)} />
+      </Section>
+
+      <Section title="Page">
+        <Segmented
+          options={store.project.pages.map((pg, i) => ({ value: i, label: pg.name }))}
+          value={store.project.pages.findIndex((pg) => pg.blocks.some((b) => b.uid === uid))}
+          onChange={(i) => store.moveToPage(uid, i)}
+        />
       </Section>
 
       <Section title="Ports">

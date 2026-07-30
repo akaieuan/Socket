@@ -34,9 +34,20 @@ function verticalDrag(value: number, onChange?: (v: number) => void) {
   };
 }
 
+/**
+ * The knob's drawing space, not its drawn size.
+ *
+ * Everything inside is in viewBox units, so stroke weights scale with the knob
+ * instead of getting spindly on a wide panel. The size itself is a container
+ * query in CSS — a number decided here could never know how much room the panel
+ * it lands in actually has.
+ */
+const BOX = 46;
+
 export function Knob({
-  value, label, size = 46, onChange,
-}: { value: number; label: string; size?: number; onChange?: (v: number) => void }) {
+  value, label, onChange,
+}: { value: number; label: string; onChange?: (v: number) => void }) {
+  const size = BOX;
   const r = size / 2;
   const thickness = Math.min(2.2, r * 0.2);
   const arcR = r - thickness / 2;
@@ -55,8 +66,7 @@ export function Knob({
   return (
     <div className="knob">
       <svg
-        width={size}
-        height={size}
+        viewBox={`0 0 ${BOX} ${BOX}`}
         onPointerDown={verticalDrag(value, onChange)}
         style={{ cursor: onChange ? "ns-resize" : "default" }}
       >
@@ -80,13 +90,13 @@ export function Knob({
  * row of knobs does not.
  */
 export function Fader({
-  value, label, height = 52, onChange,
-}: { value: number; label: string; height?: number; onChange?: (v: number) => void }) {
+  value, label, onChange,
+}: { value: number; label: string; onChange?: (v: number) => void }) {
   return (
     <div className="fader">
       <div
         className="fader-track"
-        style={{ height, cursor: onChange ? "ns-resize" : "default" }}
+        style={{ cursor: onChange ? "ns-resize" : "default" }}
         onPointerDown={verticalDrag(value, onChange)}
       >
         <span className="fader-fill" style={{ height: `${value * 100}%` }} />

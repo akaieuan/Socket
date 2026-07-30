@@ -148,6 +148,14 @@ button { font: inherit; color: inherit; }
 .list-x { background: none; border: none; cursor: pointer; color: var(--muted-foreground); padding: 0 0.5rem; }
 .list-x:hover { color: var(--foreground); }
 
+.page-row { display: flex; align-items: center; gap: 0.35rem; }
+.page-dot {
+  flex: none; width: 8px; height: 8px; padding: 0; cursor: pointer;
+  border-radius: 999px; background: none;
+  border: 1px solid var(--card-border-hover);
+}
+.page-row.on .page-dot { background: var(--accent-blue); border-color: var(--accent-blue); }
+
 .hint { font-size: 0.72rem; color: var(--muted-foreground); margin: 0.45rem 0 0; line-height: 1.5; }
 .add-btn {
   width: 100%; margin-top: 0.5rem; padding: 0.4rem; cursor: pointer;
@@ -230,7 +238,13 @@ button { font: inherit; color: inherit; }
 }
 
 /* ── a block on the face ───────────────────────────────────────────── */
+/* The panel is a query container, so everything inside sizes off the panel
+   rather than off the window. A four-knob envelope stretched to half the plugin
+   used to leave two thirds of itself empty: the fix is not more knobs, it is
+   controls that grow into the room they are given, which is what hardware does
+   and what a fixed pixel size in JS can never do. */
 .panel {
+  container-type: inline-size;
   position: relative; min-width: 0; cursor: grab;
   border: 1px solid var(--card-border); border-radius: var(--radius-card);
   background: var(--card-alpha); padding: 7px 9px 10px;
@@ -244,7 +258,17 @@ button { font: inherit; color: inherit; }
   color: var(--muted-foreground); font-size: 15px; line-height: 1; padding: 0 2px;
 }
 .panel-remove:hover { color: var(--foreground); }
-.panel-body { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 9px; align-items: flex-start; }
+/* Controls distribute across the panel rather than clustering at its left edge.
+   The gap is the floor, not the spacing: on a narrow panel it decides, on a wide
+   one the free space is shared out and six knobs read as a laid-out row instead
+   of a huddle with a third of the panel empty beside it. */
+.panel-body {
+  display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start;
+  justify-content: space-evenly; gap: clamp(9px, 2.6cqi, 30px); margin-top: 9px;
+}
+/* One control has no distribution to do, and centring it in a wide panel just
+   strands it. */
+.panel-body:has(> :only-child) { justify-content: flex-start; }
 /* Resize by the edge: dragging it is laying out, a row of buttons only
    describes a layout. */
 .panel-grip {
@@ -254,14 +278,17 @@ button { font: inherit; color: inherit; }
 .panel-grip:hover { background: var(--plugin-accent); opacity: 0.35; }
 
 .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.knob svg { display: block; width: clamp(34px, 6.5cqi, 62px); height: auto; }
 .knob-label {
-  font-family: ui-monospace, Menlo, monospace; font-size: 8px;
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(8px, 1.1cqi, 11px);
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-foreground);
 }
 .choice { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .choice-box, .toggle-box {
-  font-family: ui-monospace, Menlo, monospace; font-size: 10px; cursor: pointer;
-  padding: 5px 9px; min-width: 54px; text-align: center;
+  font-family: ui-monospace, Menlo, monospace; cursor: pointer; text-align: center;
+  font-size: clamp(10px, 1.3cqi, 13px);
+  padding: clamp(5px, 0.9cqi, 9px) clamp(9px, 1.8cqi, 18px);
+  min-width: clamp(54px, 10cqi, 84px);
   border: 1px solid var(--card-border); border-radius: var(--radius-pill);
   background: var(--card); color: var(--foreground);
 }
@@ -311,13 +338,19 @@ button { font: inherit; color: inherit; }
    Everything a block draws that is not a knob. Each one is sized in the
    plugin's own pixels, not the app's: these are drawn inside the scaled
    frame, so a value here is a value in the built plugin. */
+/* Faces grow with the panel as well — a screen that stays 62px tall inside a
+   panel twice as wide reads as a strip, not a display. */
 .panel-face { margin-top: 8px; }
 .face-canvas { display: block; width: 100%; }
-.face-meter { width: 34px; }
+.face-screen   { height: clamp(56px, 11cqi, 128px); }
+.face-scope    { height: clamp(50px, 9cqi, 104px); }
+.face-spectrum { height: clamp(48px, 9cqi, 104px); }
+.face-curve    { height: clamp(46px, 8cqi, 96px); }
+.face-meter    { height: clamp(52px, 10cqi, 96px); width: clamp(30px, 5cqi, 46px); }
 
 .fader { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .fader-track {
-  position: relative; width: 16px;
+  position: relative; width: clamp(14px, 2.2cqi, 22px); height: clamp(44px, 10cqi, 84px);
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 3px;
 }
 .fader-fill {
@@ -335,13 +368,13 @@ button { font: inherit; color: inherit; }
    patch bay is for. The column stays fluid so the labels have room. */
 .patchbay { display: grid; gap: 3px 2px; align-items: center; width: 100%; }
 .patch-col, .patch-row {
-  font-family: ui-monospace, Menlo, monospace; font-size: 7px;
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(7px, 1cqi, 10px);
   letter-spacing: 0.08em; color: var(--muted-foreground);
 }
 .patch-col { text-align: center; padding-bottom: 2px; }
 .patch-row { text-align: right; padding-right: 5px; }
 .patch-cell {
-  width: 15px; height: 15px; justify-self: center; padding: 0; cursor: pointer;
+  width: clamp(13px, 2.2cqi, 22px); height: clamp(13px, 2.2cqi, 22px); justify-self: center; padding: 0; cursor: pointer;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 999px;
 }
 .patch-cell:hover { border-color: var(--plugin-accent); }
@@ -352,7 +385,7 @@ button { font: inherit; color: inherit; }
 
 /* Steps hold a level, not a flag — a pattern with dynamics is the difference
    between a sequencer and a metronome. */
-.steps { display: flex; gap: 2px; width: 100%; height: 44px; }
+.steps { display: flex; gap: 2px; width: 100%; height: clamp(38px, 7cqi, 78px); }
 .steps .step {
   position: relative; flex: 1; padding: 0; cursor: ns-resize;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 2px;
@@ -365,20 +398,23 @@ button { font: inherit; color: inherit; }
 }
 
 .xy {
-  position: relative; width: 100%; height: 74px; cursor: crosshair;
+  position: relative; width: 100%; height: clamp(64px, 13cqi, 130px); cursor: crosshair;
   background: var(--mark-panel); border: 1px solid var(--card-border);
   border-radius: 4px; overflow: hidden;
 }
 .xy-cross { position: absolute; background: var(--card-border); }
+.xy-guide { position: absolute; background: var(--hairline); }
 .xy-h { left: 0; right: 0; height: 1px; }
 .xy-v { top: 0; bottom: 0; width: 1px; }
+.xy-guide.xy-h { left: 0; right: 0; height: 1px; }
+.xy-guide.xy-v { top: 0; bottom: 0; width: 1px; }
 .xy-dot {
   position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
   border-radius: 999px; background: var(--plugin-accent);
 }
 
 .keys {
-  position: relative; width: 100%; height: 46px;
+  position: relative; width: 100%; height: clamp(40px, 8cqi, 86px);
   background: var(--mark-panel); border: 1px solid var(--card-border);
   border-radius: 3px; overflow: hidden;
 }
@@ -401,34 +437,54 @@ button { font: inherit; color: inherit; }
 /* Fixed pad height rather than a square aspect: square pads in a fluid
    four-column grid grow with the panel, and a 4-wide panel gave a pad grid
    taller than the plugin window. */
-.pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; width: 100%; max-width: 150px; }
+.pads { display: grid; gap: 3px; width: 100%; }
 .pads .pad {
-  height: 20px; padding: 0; cursor: pointer;
+  height: clamp(18px, 3.4cqi, 34px); padding: 0; cursor: pointer;
   background: var(--mark-panel); border: 1px solid var(--card-border); border-radius: 3px;
 }
 .pads .pad:hover { border-color: var(--card-border-hover); }
 .pads .pad.on { background: var(--plugin-accent); border-color: var(--plugin-accent); }
 
 .readout {
-  width: 100%; padding: 6px 8px;
+  width: 100%; padding: clamp(6px, 1.2cqi, 12px) clamp(8px, 1.6cqi, 16px);
   background: var(--mark-screen); border-radius: 4px;
-  font-family: ui-monospace, Menlo, monospace; font-size: 9px;
+  font-family: ui-monospace, Menlo, monospace; font-size: clamp(9px, 1.3cqi, 13px);
   letter-spacing: 0.06em; color: var(--muted-foreground);
 }
 .readout-row { display: flex; justify-content: space-between; line-height: 1.7; }
 .readout-v { color: var(--plugin-accent); }
 
-/* ── palette search ────────────────────────────────────────────────────
-   At forty-eight blocks the rail stops being a list you read and becomes one
-   you hunt through. A filter costs one input and saves every scroll. */
-.palette-search { margin-bottom: 0.9rem; }
-.palette-count {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.56rem;
-  color: var(--muted-foreground); margin: 0.35rem 0 0;
+/* ── the rail ──────────────────────────────────────────────────────────
+   Forty-nine blocks flat is a column you scroll past rather than read. Six
+   labelled rows is something you take in at a glance and then open. */
+.palette-search { margin-bottom: 0.75rem; }
+
+.group + .group { margin-top: 2px; }
+.group-head {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  padding: 0.4rem 0.15rem; cursor: pointer;
+  background: none; border: none; border-radius: var(--radius-pill);
+  color: var(--muted-foreground);
 }
-.palette-item.stub { opacity: 0.62; }
-.palette-face {
-  font-family: ui-monospace, Menlo, monospace; font-size: 0.5rem;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--plugin-accent, var(--accent-blue));
+.group-head:hover { color: var(--foreground); }
+.group-head.open { color: var(--foreground); }
+.group-name {
+  flex: 1; text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase;
 }
+.group-count {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.58rem;
+  color: var(--muted-foreground);
+}
+.pixel-icon { flex: none; fill: currentColor; }
+.group-head.open .pixel-icon { fill: var(--accent-blue); }
+
+.palette { display: flex; flex-direction: column; gap: 2px; margin: 0.15rem 0 0.6rem; }
+.palette-item {
+  display: block; text-align: left; cursor: grab; font-size: 0.78rem;
+  background: none; border: 1px solid transparent;
+  border-radius: var(--radius-pill); padding: 0.3rem 0.55rem;
+}
+.palette-item:hover { background: var(--card-alpha); border-color: var(--card-border); }
+.palette-item.stub { color: var(--muted-foreground); }

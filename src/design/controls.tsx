@@ -28,8 +28,13 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export function TextInput({
-  value, onChange, placeholder,
-}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  value, onChange, placeholder, onFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  onFocus?: () => void;
+}) {
   return (
     <input
       className="text-input"
@@ -37,6 +42,7 @@ export function TextInput({
       placeholder={placeholder}
       spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
+      onFocus={onFocus}
     />
   );
 }

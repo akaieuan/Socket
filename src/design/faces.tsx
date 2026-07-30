@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { BlockInstance, Face } from "../model/types";
 
 /**
@@ -81,6 +81,20 @@ function useCanvas(
 
 const accentOf = (read: Read) => read("--plugin-accent") || read("--accent-blue");
 
+/**
+ * A face reads its own block's parameters.
+ *
+ * By id, not by label. Params are renameable, and a face that stopped
+ * responding the moment you renamed its knob would be a trap — the id is
+ * assigned once at instantiation from the catalogue label and never changes.
+ */
+const val = (block: BlockInstance, key: string, fallback: number) =>
+  block.params.find((p) => p.id.startsWith(`${key}-`))?.value ?? fallback;
+
+/** Same, for a choice: the selected index. */
+const pick = (block: BlockInstance, key: string, fallback = 0) =>
+  Math.round(val(block, key, fallback));
+
 /** Face state, defaulted without writing to the model until something is touched. */
 function useFaceState(block: BlockInstance, size: number, fill: (i: number) => number) {
   const stored = block.face.length === size ? block.face : null;
@@ -100,10 +114,23 @@ const wobble = (t: number, i: number) =>
  * does: left to right leaves most of a wide panel dead, because a synth's
  * energy is nearly all in the bottom bands.
  */
-function Screen(_: FaceProps) {
+function Screen({ block }: FaceProps) {
   const bands = useRef<number[]>([]);
   const peaks = useRef<number[]>([]);
-  const ref = useCanvas((ctx, w, h, t, read) => {
+  const clock = useRef(0);
+
+  const ref = useCanvas((ctx, w, h, _t, read) => {
+    // The knobs above the screen drive it. A display that ignores its own
+    // controls is a screensaver, and the whole reason to put controls on a
+    // panel is that turning one changes what you are looking at.
+    const mode = pick(block, "mode");
+    const rate = val(block, "rate", 0.5);
+    const tilt = val(block, "tilt", 0.5);
+    const decay = val(block, "decay", 0.4);
+
+    clock.current += (0.1 + rate * 1.4) / 60;
+    const t = clock.current * 3;
+
     const cols = Math.max(12, Math.floor(w / 7));
     const rows = Math.max(5, Math.floor(h / 7));
     const cw = w / cols, ch = h / rows, px = Math.min(cw, ch) * 0.8;
@@ -115,71 +142,111 @@ function Screen(_: FaceProps) {
     const centre = Math.floor(cols / 2);
 
     for (let c = 0; c < cols; c++) {
-      const pos = Math.abs(c - centre) / Math.max(1, centre);
-      const e = (1 - pos) ** 1.6 * wobble(t, c) * (1 + pos * 1.4);
+      // Mirror runs frequency outward from the middle; the others run it left
+      // to right. Mirrored is what enzyme's screen does, and on a wide panel it
+      // is the difference between a picture and a bump in one corner.
+      const pos = mode === 2
+        ? Math.abs(c - centre) / Math.max(1, centre)
+        : c / Math.max(1, cols - 1);
+      const lift = 1 + pos * tilt * 3;
+      const e = (1 - pos) ** 1.6 * wobble(t, c) * lift;
       bands.current[c] = Math.max(0, Math.min(1, e));
       const hh = Math.round(bands.current[c]! * reach);
-      peaks.current[c] = hh > peaks.current[c]! ? hh : Math.max(0, peaks.current[c]! - 0.14);
+      // Slow fall reads as a stab hanging in the air; fast reads as a meter.
+      peaks.current[c] = hh > peaks.current[c]!
+        ? hh
+        : Math.max(0, peaks.current[c]! - (0.02 + (1 - decay) * 0.3));
     }
 
     const panel = read("--mark-panel"), screen = read("--mark-screen");
-    const height = (i: number) => Math.round(bands.current[i]! * reach);
+    // Bloom is symmetrical about the middle row; bars sit on the floor.
+    const lit = (i: number, j: number) => {
+      const hh = Math.round(bands.current[i]! * reach);
+      if (hh <= 0) return false;
+      return mode === 1 ? j >= rows - hh : Math.abs(j - mid) <= hh;
+    };
+
     for (let j = 0; j < rows; j++)
       for (let i = 0; i < cols; i++) {
-        ctx.fillStyle = height(i) > 0 && Math.abs(j - mid) <= height(i) ? screen : panel;
+        ctx.fillStyle = lit(i, j) ? screen : panel;
         ctx.fillRect(i * cw, j * ch, cw, ch);
       }
 
     ctx.fillStyle = read("--muted-foreground");
     for (let j = 0; j < rows; j++)
       for (let i = 0; i < cols; i++) {
-        if (height(i) > 0 && Math.abs(j - mid) <= height(i)) continue;
+        if (lit(i, j)) continue;
         ctx.fillRect(i * cw + (cw - px) / 2, j * ch + (ch - px) / 2, px, px);
       }
 
     ctx.fillStyle = accentOf(read);
     for (let i = 0; i < cols; i++) {
-      const hh = height(i);
+      const hh = Math.round(bands.current[i]! * reach);
       if (hh <= 0) continue;
-      for (const j of [mid - hh, mid + hh]) {
+      const crest = mode === 1 ? [rows - hh] : [mid - hh, mid + hh];
+      for (const j of crest) {
         if (j < 0 || j >= rows) continue;
         ctx.fillRect(i * cw + (cw - px) / 2, j * ch + (ch - px) / 2, px, px);
       }
     }
   });
-  return <canvas ref={ref} className="face-canvas" style={{ height: 62 }} />;
+  return <canvas ref={ref} className="face-canvas face-screen" />;
 }
 
-/** An oscilloscope trace. Two cycles, drifting, so it reads as live not frozen. */
-function Scope(_: FaceProps) {
+/** An oscilloscope trace, drifting so it reads as live rather than frozen. */
+function Scope({ block }: FaceProps) {
   const ref = useCanvas((ctx, w, h, t, read) => {
+    const cycles = 1 + val(block, "time", 0.4) * 9;
+    const gain = 0.15 + val(block, "gain", 0.6) * 0.75;
+    const dots = pick(block, "trace") === 1;
+
     ctx.strokeStyle = read("--hairline");
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
 
-    ctx.strokeStyle = accentOf(read);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let x = 0; x <= w; x++) {
-      const p = x / w * Math.PI * 4 + t * 2;
-      const y = h / 2 - (Math.sin(p) * 0.6 + Math.sin(p * 3 + t) * 0.22 + Math.sin(p * 5) * 0.1) * h * 0.42;
-      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    const at = (x: number) => {
+      const a = x / w * Math.PI * 2 * cycles + t * 2;
+      return h / 2 - (Math.sin(a) * 0.6 + Math.sin(a * 3 + t) * 0.22 + Math.sin(a * 5) * 0.1) * h * gain;
+    };
+
+    ctx.fillStyle = ctx.strokeStyle = accentOf(read);
+    if (dots) {
+      for (let x = 0; x <= w; x += 3) ctx.fillRect(x, at(x) - 1, 2, 2);
+    } else {
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = 0; x <= w; x++) (x === 0 ? ctx.moveTo(x, at(x)) : ctx.lineTo(x, at(x)));
+      ctx.stroke();
     }
-    ctx.stroke();
   });
-  return <canvas ref={ref} className="face-canvas" style={{ height: 56 }} />;
+  return <canvas ref={ref} className="face-canvas face-scope" />;
 }
 
 /** A bar analyser — skeleton's RackAnalysis, log-spaced and peak-held. */
-function Spectrum(_: FaceProps) {
+function Spectrum({ block }: FaceProps) {
   const peaks = useRef<number[]>([]);
+  const held = useRef<number[]>([]);
   const ref = useCanvas((ctx, w, h, t, read) => {
-    const n = Math.max(8, Math.min(48, Math.floor(w / 9)));
-    if (peaks.current.length !== n) peaks.current = new Array(n).fill(0);
+    const counts = [16, 24, 32, 48];
+    const want = counts[pick(block, "bands", 1)] ?? 24;
+    // Never more bars than the panel has room for — a bar under two pixels
+    // wide is noise, and the panel is resizable.
+    const n = Math.max(8, Math.min(want, Math.floor(w / 5)));
+    const slope = 0.6 + val(block, "tilt", 0.5) * 2.2;
+    const smooth = val(block, "smooth", 0.4);
+
+    if (peaks.current.length !== n) {
+      peaks.current = new Array(n).fill(0);
+      held.current = new Array(n).fill(0);
+    }
     const bw = w / n;
     for (let i = 0; i < n; i++) {
-      const tilt = (1 - i / n) ** 1.4;
-      const v = Math.max(0, Math.min(1, tilt * wobble(t, i * 2) * 1.5));
+      const raw = Math.max(0, Math.min(1, (1 - i / n) ** slope * wobble(t, i * 2) * 1.5));
+      // Smoothing is a one-pole on the bar itself, which is what makes a
+      // spectrum readable rather than a strobe.
+      const a = 0.06 + (1 - smooth) * 0.9;
+      held.current[i] = held.current[i]! + (raw - held.current[i]!) * a;
+      const v = held.current[i]!;
       peaks.current[i] = v > peaks.current[i]! ? v : Math.max(0, peaks.current[i]! - 0.008);
       ctx.fillStyle = read("--mark-panel");
       ctx.fillRect(i * bw, 0, bw - 1, h);
@@ -189,19 +256,20 @@ function Spectrum(_: FaceProps) {
       ctx.fillRect(i * bw, h - peaks.current[i]! * h, bw - 1, 1.5);
     }
   });
-  return <canvas ref={ref} className="face-canvas" style={{ height: 54 }} />;
+  return <canvas ref={ref} className="face-canvas face-spectrum" />;
 }
 
 /** Stereo level, in segments, with a peak that falls slowly. */
-function LevelMeter(_: FaceProps) {
+function LevelMeter({ block }: FaceProps) {
   const peak = useRef([0, 0]);
   const ref = useCanvas((ctx, w, h, t, read) => {
+    const fall = 0.001 + (1 - val(block, "hold", 0.6)) * 0.03;
     const segs = 14, gap = 2;
     const sh = (h - gap * (segs - 1)) / segs;
     const lanes = [wobble(t, 3) * 0.85, wobble(t * 1.1, 9) * 0.85];
     const lw = (w - 4) / 2;
     lanes.forEach((v, lane) => {
-      peak.current[lane] = v > peak.current[lane]! ? v : Math.max(0, peak.current[lane]! - 0.004);
+      peak.current[lane] = v > peak.current[lane]! ? v : Math.max(0, peak.current[lane]! - fall);
       const lit = Math.round(v * segs);
       const at = Math.round(peak.current[lane]! * segs);
       for (let s = 0; s < segs; s++) {
@@ -214,7 +282,7 @@ function LevelMeter(_: FaceProps) {
     });
     ctx.globalAlpha = 1;
   });
-  return <canvas ref={ref} className="face-canvas face-meter" style={{ height: 58, width: 34 }} />;
+  return <canvas ref={ref} className="face-canvas face-meter" />;
 }
 
 /**
@@ -225,12 +293,14 @@ function LevelMeter(_: FaceProps) {
  * value. A curve that ignored the knobs above it would be wallpaper.
  */
 function Curve({ block }: FaceProps) {
-  const at = (label: string, fallback: number) =>
-    block.params.find((p) => p.label.toLowerCase().startsWith(label))?.value ?? fallback;
-
   const ref = useCanvas((ctx, w, h, _t, read) => {
     const pad = 4, y0 = h - pad, y1 = pad;
-    const a = at("a", 0.1), d = at("d", 0.4), s = at("s", 0.6), r = at("r", 0.3);
+    const a = val(block, "a", 0.1), d = val(block, "d", 0.4);
+    const s = val(block, "s", 0.6), r = val(block, "r", 0.3);
+    // 0.5 is linear; below bends the segment toward exponential, above toward
+    // logarithmic. Drawn as a real bend rather than a label, because the shape
+    // of an envelope is the one thing a number never tells you.
+    const bend = val(block, "curve", 0.5);
     const span = Math.max(0.001, a + d + 1.2 + r);
     const x = (v: number) => pad + (v / span) * (w - pad * 2);
     const sy = y0 - s * (y0 - y1);
@@ -238,12 +308,21 @@ function Curve({ block }: FaceProps) {
     ctx.strokeStyle = read("--hairline");
     ctx.beginPath(); ctx.moveTo(pad, y0); ctx.lineTo(w - pad, y0); ctx.stroke();
 
+    // Each stage as a short polyline so the bend is visible.
+    const seg = (x0: number, ya: number, x1: number, yb: number) => {
+      for (let k = 1; k <= 12; k++) {
+        const u = k / 12;
+        const shaped = bend === 0.5 ? u : u ** (0.35 + (1 - bend) * 2.4);
+        ctx.lineTo(x0 + (x1 - x0) * u, ya + (yb - ya) * shaped);
+      }
+    };
+
     ctx.beginPath();
     ctx.moveTo(x(0), y0);
-    ctx.lineTo(x(a), y1);
-    ctx.lineTo(x(a + d), sy);
+    seg(x(0), y0, x(a), y1);
+    seg(x(a), y1, x(a + d), sy);
     ctx.lineTo(x(a + d + 1.2), sy);
-    ctx.lineTo(x(a + d + 1.2 + r), y0);
+    seg(x(a + d + 1.2), sy, x(a + d + 1.2 + r), y0);
 
     ctx.strokeStyle = accentOf(read); ctx.lineWidth = 1.6; ctx.lineJoin = "round"; ctx.stroke();
 
@@ -251,7 +330,7 @@ function Curve({ block }: FaceProps) {
     ctx.closePath();
     ctx.fillStyle = accentOf(read); ctx.globalAlpha = 0.12; ctx.fill(); ctx.globalAlpha = 1;
   });
-  return <canvas ref={ref} className="face-canvas" style={{ height: 50 }} />;
+  return <canvas ref={ref} className="face-canvas face-curve" />;
 }
 
 /* ── interactive faces ────────────────────────────────────────────────── */
@@ -319,11 +398,15 @@ function Steps({ block, onFace }: FaceProps) {
   const n = 16;
   const values = useFaceState(block, n, (i) => (i % 4 === 0 ? 0.8 : i % 2 === 0 ? 0.45 : 0));
   const [head, setHead] = useState(0);
+  // The Rate knob drives it. It sat directly under a playhead running at a
+  // fixed tempo, which is the most visible possible version of a control that
+  // does nothing.
+  const ms = Math.round(400 - val(block, "rate", 0.5) * 340);
 
   useEffect(() => {
-    const id = window.setInterval(() => setHead((h) => (h + 1) % n), 125);
+    const id = window.setInterval(() => setHead((h) => (h + 1) % n), ms);
     return () => window.clearInterval(id);
-  }, []);
+  }, [ms]);
 
   const set = (i: number, v: number) => {
     const next = values.slice();
@@ -378,8 +461,18 @@ function XY({ block, onFace }: FaceProps) {
     window.addEventListener("pointerup", up);
   };
 
+  // Guides, so a position on the pad is a value you can read back rather than
+  // one you can only feel.
+  const divisions = [0, 3, 5][pick(block, "grid", 1)] ?? 3;
+
   return (
     <div className="xy" ref={box} onPointerDown={grab}>
+      {Array.from({ length: Math.max(0, divisions - 1) }, (_, i) => (
+        <Fragment key={i}>
+          <span className="xy-guide xy-h" style={{ top: `${((i + 1) / divisions) * 100}%` }} />
+          <span className="xy-guide xy-v" style={{ left: `${((i + 1) / divisions) * 100}%` }} />
+        </Fragment>
+      ))}
       <span className="xy-cross xy-h" style={{ top: `${(1 - y!) * 100}%` }} />
       <span className="xy-cross xy-v" style={{ left: `${x! * 100}%` }} />
       <span className="xy-dot" style={{ left: `${x! * 100}%`, top: `${(1 - y!) * 100}%` }} />
@@ -391,7 +484,7 @@ const BLACK = new Set([1, 3, 6, 8, 10]);
 
 /** Two octaves. Held notes persist, so a chord can be part of the layout. */
 function Keys({ block, onFace }: FaceProps) {
-  const n = 24;
+  const n = [12, 24, 36, 61][pick(block, "range", 1)] ?? 24;
   const held = useFaceState(block, n, () => 0);
   const hit = (i: number) => {
     const next = held.slice();
@@ -429,10 +522,12 @@ function Keys({ block, onFace }: FaceProps) {
 
 /** Sixteen triggers. Latching, because a mock that forgets is worse than none. */
 function Pads({ block, onFace }: FaceProps) {
-  const n = 16;
+  const cols = [4, 8][pick(block, "cols")] ?? 4;
+  const rows = [4, 2, 1][pick(block, "rows")] ?? 4;
+  const n = cols * rows;
   const on = useFaceState(block, n, () => 0);
   return (
-    <div className="pads">
+    <div className="pads" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, maxWidth: cols * 38 }}>
       {on.map((v, i) => (
         <button
           key={i}
@@ -457,16 +552,23 @@ function Pads({ block, onFace }: FaceProps) {
  */
 function Readout({ block }: FaceProps) {
   const [tick, setTick] = useState(0);
+  const ms = Math.round(1400 - val(block, "rate", 0.5) * 1200);
   useEffect(() => {
-    const id = window.setInterval(() => setTick((t) => t + 1), 700);
+    const id = window.setInterval(() => setTick((t) => t + 1), ms);
     return () => window.clearInterval(id);
-  }, []);
+  }, [ms]);
+
   const notes = ["C2", "G2", "A#3", "D3", "F4", "E2"];
-  const lines: [string, string][] = [
-    ["NOTE", notes[tick % notes.length]!],
-    ["VOICES", `${(tick % 5) + 1}/8`],
-    ["CPU", `${8 + (tick % 7)}%`],
-  ];
+  // Three things a readout is ever for. Which one a panel needs depends
+  // entirely on what it sits next to, so it is a control rather than a choice
+  // baked into the block.
+  const sets: Record<number, [string, string][]> = {
+    0: [["NOTE", notes[tick % notes.length]!], ["VOICES", `${(tick % 5) + 1}/8`], ["BEND", `${(tick % 3) - 1}`]],
+    1: [["ENGINE", block.name], ["MODE", tick % 2 ? "POLY" : "MONO"], ["TUNE", `${440 + (tick % 3)}Hz`]],
+    2: [["CPU", `${8 + (tick % 7)}%`], ["SR", "48k"], ["LAT", `${64 + (tick % 2) * 64}`]],
+  };
+  const lines = sets[pick(block, "source")] ?? sets[0]!;
+
   return (
     <div className="readout">
       {lines.map(([k, v]) => (
@@ -474,7 +576,6 @@ function Readout({ block }: FaceProps) {
           <span>{k}</span><span className="readout-v">{v}</span>
         </div>
       ))}
-      <div className="readout-row"><span>SRC</span><span className="readout-v">{block.name}</span></div>
     </div>
   );
 }

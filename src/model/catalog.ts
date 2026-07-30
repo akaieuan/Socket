@@ -115,12 +115,12 @@ export const CATALOG: BlockDef[] = [
   {
     type: "env", name: "Envelope", group: "Modulate", from: "three implementations, none shared",
     ports: mod, defaultSpan: 5, face: "curve",
-    params: [knob("A", 0.1), knob("D", 0.4), knob("S", 0.6), knob("R", 0.3)],
+    params: [knob("A", 0.1), knob("D", 0.4), knob("S", 0.6), knob("R", 0.3), knob("Curve"), knob("Vel", 0.4)],
   },
   {
     type: "env2", name: "Mod envelope", group: "Modulate", from: "— not built",
     ports: mod, defaultSpan: 6, face: "curve",
-    params: [knob("Delay", 0), knob("A", 0.2), knob("D", 0.5), knob("S", 0.3), knob("R", 0.4), knob("Amount", 0.5)],
+    params: [knob("Delay", 0), knob("A", 0.2), knob("D", 0.5), knob("S", 0.3), knob("R", 0.4), knob("Curve"), knob("Amount", 0.5)],
   },
   {
     type: "lfo", name: "LFO", group: "Modulate", from: "bleep · Voice.cpp",
@@ -250,35 +250,43 @@ export const CATALOG: BlockDef[] = [
   /* ── Display ──────────────────────────────────────────────────────── */
   {
     type: "screen", name: "Screen", group: "Display", from: "skeleton · PixelRack",
-    ports: passive, defaultSpan: 5, minSpan: 3, face: "screen", params: [],
+    ports: passive, defaultSpan: 5, minSpan: 3, face: "screen",
+    params: [choice("Mode", ["Bloom", "Bars", "Mirror"], 2), knob("Rate", 0.5), knob("Tilt", 0.5), knob("Decay", 0.4)],
   },
   {
     type: "scope", name: "Scope", group: "Display", from: "— not built",
-    ports: passive, defaultSpan: 4, face: "scope", params: [],
+    ports: passive, defaultSpan: 4, face: "scope",
+    params: [knob("Time", 0.4), knob("Gain", 0.6), choice("Trace", ["Line", "Dots"])],
   },
   {
     type: "analyser", name: "Analyser", group: "Display", from: "skeleton · RackAnalysis",
-    ports: passive, defaultSpan: 5, face: "spectrum", params: [],
+    ports: passive, defaultSpan: 5, face: "spectrum",
+    params: [choice("Bands", ["16", "24", "32", "48"], 1), knob("Tilt", 0.5), knob("Smooth", 0.4)],
   },
   {
     type: "meter", name: "Meter", group: "Display", from: "skeleton · RackAnalysis",
-    ports: passive, defaultSpan: 2, face: "meter", params: [],
+    ports: passive, defaultSpan: 3, face: "meter",
+    params: [knob("Hold", 0.6)],
   },
   {
     type: "keys", name: "Keyboard", group: "Display", from: "— not built",
-    ports: passive, defaultSpan: 7, minSpan: 4, face: "keys", params: [],
+    ports: passive, defaultSpan: 7, minSpan: 4, face: "keys",
+    params: [choice("Range", ["1 oct", "2 oct", "3 oct", "5 oct"], 1)],
   },
   {
     type: "xy", name: "XY pad", group: "Display", from: "— not built",
-    ports: mod, defaultSpan: 3, face: "xy", params: [],
+    ports: mod, defaultSpan: 3, face: "xy",
+    params: [choice("Grid", ["Off", "3×3", "5×5"], 1)],
   },
   {
     type: "pads", name: "Pads", group: "Display", from: "— not built",
-    ports: mod, defaultSpan: 4, minSpan: 3, face: "pads", params: [],
+    ports: mod, defaultSpan: 4, minSpan: 3, face: "pads",
+    params: [choice("Cols", ["4", "8"]), choice("Rows", ["4", "2", "1"])],
   },
   {
     type: "readout", name: "Readout", group: "Display", from: "skeleton · ModuleReadout",
-    ports: passive, defaultSpan: 3, face: "readout", params: [],
+    ports: passive, defaultSpan: 3, face: "readout",
+    params: [choice("Source", ["Voice", "Engine", "Perf"]), knob("Rate", 0.5)],
   },
 ];
 
