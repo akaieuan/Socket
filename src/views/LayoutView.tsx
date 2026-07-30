@@ -31,7 +31,9 @@ export function LayoutView({ store, dragType, onDropBlock }: {
     const el = stage.current;
     if (!el) return;
     const fit = () => {
-      const pad = 56;
+      // clientWidth already excludes the stage's own padding, so this is only
+      // the breathing room between the window and the edge of that box.
+      const pad = 48;
       setScale(Math.min(1, (el.clientWidth - pad) / project.size.w, (el.clientHeight - pad) / project.size.h));
     };
     fit();

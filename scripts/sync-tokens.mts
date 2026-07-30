@@ -171,6 +171,10 @@ button { font: inherit; color: inherit; }
    grid also gives the eye a fixed reference while a panel is being dragged. */
 .stage {
   flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  /* Room around the window. Centred in a bare box it sat hard against the
+     inspector's border, which read as the plugin being cut off by the panel
+     rather than sitting on a surface. */
+  padding: 0 clamp(24px, 4vw, 72px);
   background-color: var(--stage);
   background-image: radial-gradient(var(--stage-dot) 1px, transparent 1px);
   background-size: 16px 16px;

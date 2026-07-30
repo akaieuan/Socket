@@ -113,7 +113,7 @@ export class Audio {
 
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.5;
+    analyser.smoothingTimeConstant = 0.35;
     this.analyser = analyser;
 
     node.connect(analyser).connect(ctx.destination);

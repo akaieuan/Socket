@@ -105,9 +105,56 @@ function useFaceState(block: BlockInstance, size: number, fill: (i: number) => n
   return stored ?? Array.from({ length: size }, (_, i) => fill(i));
 }
 
-/** A stand-in signal. Never repeats exactly, which is the only property that matters. */
+/**
+ * A stand-in signal, for when nothing is playing.
+ *
+ * Not decoration: before you click Enable audio there is no signal, and a
+ * display sitting at zero reads as broken rather than as silent. It never
+ * repeats exactly, which is the only property that matters.
+ */
 const wobble = (t: number, i: number) =>
   (0.55 + 0.45 * Math.sin(t * 1.3 + i * 0.35)) * (0.7 + 0.3 * Math.sin(t * 0.6 + i * 0.11));
+
+/**
+ * The window a display maps to 0..1.
+ *
+ * Measured rather than guessed. Three notes through a lowpass put the
+ * fundamentals at -43 to -59dB per band and everything above 400Hz below -120,
+ * because the filter genuinely removed it. A -85 floor threw away half of the
+ * useful range and a -15 ceiling was never reached, so the picture lived in the
+ * top third of the scale and barely moved.
+ */
+const DB_FLOOR = -100, DB_CEIL = -30;
+
+/**
+ * Log-spaced bands from the analyser's linear bins.
+ *
+ * Linear bins are the wrong shape for a display: at 48kHz with a 2048-point
+ * transform, half of them cover 12kHz and up, which is where a synth has almost
+ * nothing. Thirty to sixteen thousand, logarithmically, is what an octave-spaced
+ * ear expects — and it is why a spectrum drawn straight from the bins looks
+ * dead on the right and crowded on the left.
+ */
+function bands(analyser: AnalyserNode, buf: Float32Array<ArrayBuffer>, out: Float32Array) {
+  analyser.getFloatFrequencyData(buf);
+  const n = out.length;
+  const nyquist = analyser.context.sampleRate / 2;
+  const perBin = nyquist / buf.length;
+
+  for (let b = 0; b < n; b++) {
+    const lo = 30 * Math.pow(16000 / 30, b / n);
+    const hi = 30 * Math.pow(16000 / 30, (b + 1) / n);
+    const i0 = Math.max(0, Math.floor(lo / perBin));
+    const i1 = Math.min(buf.length - 1, Math.max(i0, Math.ceil(hi / perBin)));
+
+    // Peak, not mean. A mean across a wide high band buries a single strong
+    // partial in the noise either side of it, which is exactly the thing you
+    // put a display there to see.
+    let peak = -Infinity;
+    for (let i = i0; i <= i1; i++) if (buf[i]! > peak) peak = buf[i]!;
+    out[b] = Math.max(0, Math.min(1, (peak - DB_FLOOR) / (DB_CEIL - DB_FLOOR)));
+  }
+}
 
 /* ── displays ─────────────────────────────────────────────────────────── */
 
@@ -119,7 +166,10 @@ const wobble = (t: number, i: number) =>
  * energy is nearly all in the bottom bands.
  */
 function Screen({ block }: FaceProps) {
-  const bands = useRef<number[]>([]);
+  const sound = useAudioContext();
+  const bins = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
+  const levels = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
+  const bandsRef = useRef<number[]>([]);
   const peaks = useRef<number[]>([]);
   const clock = useRef(0);
 
@@ -138,12 +188,22 @@ function Screen({ block }: FaceProps) {
     const cols = Math.max(12, Math.floor(w / 7));
     const rows = Math.max(5, Math.floor(h / 7));
     const cw = w / cols, ch = h / rows, px = Math.min(cw, ch) * 0.8;
-    if (bands.current.length !== cols) {
-      bands.current = new Array(cols).fill(0);
+    if (bandsRef.current.length !== cols) {
+      bandsRef.current = new Array(cols).fill(0);
       peaks.current = new Array(cols).fill(0);
     }
     const mid = Math.floor(rows / 2), reach = Math.max(1, Math.floor(rows / 2));
     const centre = Math.floor(cols / 2);
+
+    // The real spectrum when something is playing, a stand-in when nothing is.
+    const analyser = sound.analyser();
+    const half = Math.max(1, Math.ceil(cols / 2));
+    const wide = mode === 2 ? half : cols;
+    if (analyser) {
+      if (bins.current.length !== analyser.frequencyBinCount) bins.current = new Float32Array(analyser.frequencyBinCount);
+      if (levels.current.length !== wide) levels.current = new Float32Array(wide);
+      bands(analyser, bins.current, levels.current);
+    }
 
     for (let c = 0; c < cols; c++) {
       // Mirror runs frequency outward from the middle; the others run it left
@@ -153,9 +213,17 @@ function Screen({ block }: FaceProps) {
         ? Math.abs(c - centre) / Math.max(1, centre)
         : c / Math.max(1, cols - 1);
       const lift = 1 + pos * tilt * 3;
-      const e = (1 - pos) ** 1.6 * wobble(t, c) * lift;
-      bands.current[c] = Math.max(0, Math.min(1, e));
-      const hh = Math.round(bands.current[c]! * reach);
+
+      // pos is 0 at the low end and 1 at the high end in both layouts — the
+      // middle outward when mirrored, left to right otherwise. Reading the
+      // band with (1 - pos) put the fundamentals at the edges, where Tilt then
+      // lifted them by two and a half, and the whole picture pinned.
+      const raw = analyser
+        ? levels.current[Math.min(wide - 1, Math.round(pos * (wide - 1)))]! * lift
+        : (1 - pos) ** 1.6 * wobble(t, c) * lift;
+
+      bandsRef.current[c] = Math.max(0, Math.min(1, raw));
+      const hh = Math.round(bandsRef.current[c]! * reach);
       // Slow fall reads as a stab hanging in the air; fast reads as a meter.
       peaks.current[c] = hh > peaks.current[c]!
         ? hh
@@ -165,7 +233,7 @@ function Screen({ block }: FaceProps) {
     const panel = read("--mark-panel"), screen = read("--mark-screen");
     // Bloom is symmetrical about the middle row; bars sit on the floor.
     const lit = (i: number, j: number) => {
-      const hh = Math.round(bands.current[i]! * reach);
+      const hh = Math.round(bandsRef.current[i]! * reach);
       if (hh <= 0) return false;
       return mode === 1 ? j >= rows - hh : Math.abs(j - mid) <= hh;
     };
@@ -185,7 +253,7 @@ function Screen({ block }: FaceProps) {
 
     ctx.fillStyle = accentOf(read);
     for (let i = 0; i < cols; i++) {
-      const hh = Math.round(bands.current[i]! * reach);
+      const hh = Math.round(bandsRef.current[i]! * reach);
       if (hh <= 0) continue;
       const crest = mode === 1 ? [rows - hh] : [mid - hh, mid + hh];
       for (const j of crest) {
@@ -199,6 +267,9 @@ function Screen({ block }: FaceProps) {
 
 /** An oscilloscope trace, drifting so it reads as live rather than frozen. */
 function Scope({ block }: FaceProps) {
+  const sound = useAudioContext();
+  const wave = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
+
   const ref = useCanvas((ctx, w, h, t, read) => {
     const cycles = 1 + val(block, "time", 0.4) * 9;
     const gain = 0.15 + val(block, "gain", 0.6) * 0.75;
@@ -208,7 +279,21 @@ function Scope({ block }: FaceProps) {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
 
+    const analyser = sound.analyser();
+    if (analyser) {
+      if (wave.current.length !== analyser.fftSize) wave.current = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(wave.current);
+    }
+
+    // Time is how much of the buffer fits across the panel — a real scope's
+    // timebase, not a frequency. Ten is about two cycles of a low note.
+    const span = analyser ? Math.max(64, Math.round(wave.current.length / cycles)) : 0;
+
     const at = (x: number) => {
+      if (analyser && span > 0) {
+        const i = Math.min(wave.current.length - 1, Math.round((x / w) * span));
+        return h / 2 - wave.current[i]! * h * gain * 2.2;
+      }
       const a = x / w * Math.PI * 2 * cycles + t * 2;
       return h / 2 - (Math.sin(a) * 0.6 + Math.sin(a * 3 + t) * 0.22 + Math.sin(a * 5) * 0.1) * h * gain;
     };
@@ -228,6 +313,9 @@ function Scope({ block }: FaceProps) {
 
 /** A bar analyser — skeleton's RackAnalysis, log-spaced and peak-held. */
 function Spectrum({ block }: FaceProps) {
+  const sound = useAudioContext();
+  const bins = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
+  const levels = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
   const peaks = useRef<number[]>([]);
   const held = useRef<number[]>([]);
   const ref = useCanvas((ctx, w, h, t, read) => {
@@ -243,9 +331,21 @@ function Spectrum({ block }: FaceProps) {
       peaks.current = new Array(n).fill(0);
       held.current = new Array(n).fill(0);
     }
+
+    const analyser = sound.analyser();
+    if (analyser) {
+      if (bins.current.length !== analyser.frequencyBinCount) bins.current = new Float32Array(analyser.frequencyBinCount);
+      if (levels.current.length !== n) levels.current = new Float32Array(n);
+      bands(analyser, bins.current, levels.current);
+    }
+
     const bw = w / n;
     for (let i = 0; i < n; i++) {
-      const raw = Math.max(0, Math.min(1, (1 - i / n) ** slope * wobble(t, i * 2) * 1.5));
+      // Tilt lifts the top end, which genuinely carries less — left alone a
+      // real spectrum is a wall on the left and nothing after it.
+      const raw = analyser
+        ? Math.max(0, Math.min(1, levels.current[i]! * (1 + (i / n) * slope)))
+        : Math.max(0, Math.min(1, (1 - i / n) ** slope * wobble(t, i * 2) * 1.5));
       // Smoothing is a one-pole on the bar itself, which is what makes a
       // spectrum readable rather than a strobe.
       const a = 0.06 + (1 - smooth) * 0.9;
@@ -265,14 +365,29 @@ function Spectrum({ block }: FaceProps) {
 
 /** Stereo level, in segments, with a peak that falls slowly. */
 function LevelMeter({ block }: FaceProps) {
+  const sound = useAudioContext();
+  const wave = useRef<Float32Array<ArrayBuffer>>(new Float32Array(0));
   const peak = useRef([0, 0]);
   const ref = useCanvas((ctx, w, h, t, read) => {
     const fall = 0.001 + (1 - val(block, "hold", 0.6)) * 0.03;
     const segs = 14, gap = 2;
     const sh = (h - gap * (segs - 1)) / segs;
-    const lanes = [wobble(t, 3) * 0.85, wobble(t * 1.1, 9) * 0.85];
+
+    const analyser = sound.analyser();
+    let lanes = [wobble(t, 3) * 0.85, wobble(t * 1.1, 9) * 0.85];
+    if (analyser) {
+      if (wave.current.length !== analyser.fftSize) wave.current = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(wave.current);
+      let rms = 0, top = 0;
+      for (const v of wave.current) { rms += v * v; if (Math.abs(v) > top) top = Math.abs(v); }
+      rms = Math.sqrt(rms / wave.current.length);
+      // RMS on one lane and peak on the other. A meter showing only peak reads
+      // as loud when nothing is; only RMS and a clipping transient goes unseen.
+      const scale = (x: number) => Math.max(0, Math.min(1, (20 * Math.log10(x + 1e-9) - DB_FLOOR) / (0 - DB_FLOOR)));
+      lanes = [scale(rms), scale(top)];
+    }
     const lw = (w - 4) / 2;
-    lanes.forEach((v, lane) => {
+    lanes.forEach((v: number, lane: number) => {
       peak.current[lane] = v > peak.current[lane]! ? v : Math.max(0, peak.current[lane]! - fall);
       const lit = Math.round(v * segs);
       const at = Math.round(peak.current[lane]! * segs);
@@ -713,6 +828,8 @@ function XY({ block, onFace }: FaceProps) {
 }
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
+const PITCH = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteLabel = (n: number) => `${PITCH[n % 12]}${Math.floor(n / 12) - 1}`;
 
 /**
  * A keyboard that plays.
@@ -808,14 +925,22 @@ function Readout({ block }: FaceProps) {
     return () => window.clearInterval(id);
   }, [ms]);
 
+  const sound = useAudioContext();
   const notes = ["C2", "G2", "A#3", "D3", "F4", "E2"];
+  const live = sound.running;
   // Three things a readout is ever for. Which one a panel needs depends
   // entirely on what it sits next to, so it is a control rather than a choice
-  // baked into the block.
+  // baked into the block. Real numbers where there are real numbers — a voice
+  // count that counts nothing is the sort of detail that quietly teaches you
+  // not to trust the panel.
   const sets: Record<number, [string, string][]> = {
-    0: [["NOTE", notes[tick % notes.length]!], ["VOICES", `${(tick % 5) + 1}/8`], ["BEND", `${(tick % 3) - 1}`]],
-    1: [["ENGINE", block.name], ["MODE", tick % 2 ? "POLY" : "MONO"], ["TUNE", `${440 + (tick % 3)}Hz`]],
-    2: [["CPU", `${8 + (tick % 7)}%`], ["SR", "48k"], ["LAT", `${64 + (tick % 2) * 64}`]],
+    0: [
+      ["NOTE", live ? (sound.held.length ? noteLabel(sound.held[sound.held.length - 1]!) : "—") : notes[tick % notes.length]!],
+      ["VOICES", live ? `${sound.status.voices}/8` : `${(tick % 5) + 1}/8`],
+      ["STEP", live && sound.status.step >= 0 ? String(sound.status.step + 1) : "—"],
+    ],
+    1: [["ENGINE", block.name], ["MODE", "POLY"], ["OCT", live ? String(sound.octave) : "—"]],
+    2: [["STATE", live ? "LIVE" : "IDLE"], ["SR", "48k"], ["VOICES", live ? String(sound.status.voices) : "0"]],
   };
   const lines = sets[pick(block, "source")] ?? sets[0]!;
 

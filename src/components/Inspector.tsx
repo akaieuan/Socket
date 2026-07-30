@@ -69,7 +69,7 @@ function Transport({ store }: { store: Store }) {
     <Section title="Transport">
       <div className="flex items-center gap-1.5">
         <Button
-          variant={sound.running ? "outline" : "default"}
+          variant="outline"
           size="sm"
           className="flex-1 gap-1.5 font-mono text-[10px] tracking-wider uppercase"
           onClick={() => void sound.start()}

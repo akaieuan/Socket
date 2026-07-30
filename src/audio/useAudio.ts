@@ -135,6 +135,8 @@ export function useAudio(project: Project) {
   return {
     running,
     status,
+    /** For the faces. Already connected, so no second channel is needed. */
+    analyser: () => audio.getAnalyser(),
     octave,
     setOctave,
     held,
