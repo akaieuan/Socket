@@ -159,7 +159,9 @@ function ProjectInspector({ store }: { store: Store }) {
             <button
               key={s.name}
               onClick={() => store.setSize(s)}
-              className={`rounded-md border px-2 py-1.5 text-left transition-colors ${
+              // Fit takes the whole row: it is not a size, it is the absence of
+              // one, and sitting it beside four rectangles reads as a fifth.
+              className={`rounded-md border px-2 py-1.5 text-left transition-colors ${s.fit ? "col-span-2" : ""} ${
                 project.size.name === s.name
                   ? "border-accent-blue bg-card"
                   : "border-card-border bg-card-alpha hover:border-card-border-hover"
@@ -167,7 +169,7 @@ function ProjectInspector({ store }: { store: Store }) {
             >
               <span className="block text-[12px] leading-tight">{s.name}</span>
               <span className="text-muted-foreground block font-mono text-[9px]">
-                {s.w}×{s.h}
+                {s.fit ? s.from : `${s.w}×${s.h}`}
               </span>
             </button>
           ))}

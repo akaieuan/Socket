@@ -27,9 +27,12 @@ export const IMPLEMENTED = new Set([
   // Shape
   "filter", "formant", "comb", "drive", "fold", "crush", "eq", "gate",
   // Modulate
-  "env", "lfo",
+  "env", "env2", "lfo", "random", "follow", "seq", "arp", "keytrack",
+  // Effect
+  "delay", "reverb", "chorus", "phaser", "flanger", "comp", "limiter",
+  "tape", "grain", "ring", "width", "fxchain",
   // Route
-  "out",
+  "macros", "mixer", "voice", "split", "out",
 ]);
 
 /**
@@ -168,6 +171,7 @@ export class Audio {
     const blocks = project.pages.flatMap((p) => p.blocks);
     this.send({ type: "blocks", types: blocks.map((b) => BLOCK_TYPE[b.type] ?? 0) });
     this.setChain(project);
+
     blocks.forEach((b, i) => {
       const def = byType(b.type);
       if (!def) return;
@@ -177,7 +181,36 @@ export class Audio {
         const index = def.params.findIndex((d) => p.id.startsWith(`${d.label.toLowerCase()}-`));
         if (index >= 0) this.send({ type: "param", block: i, index, value: p.value });
       });
+
+      // Face state goes with the structure, not only when the face is edited.
+      //
+      // This message rebuilds every engine, so a fresh sequencer arrives with
+      // an empty pattern. The grid does push its steps — but React runs child
+      // effects before parent ones, so the face pushed first and the rebuild
+      // then wiped it. The sequencer ran, reported its step, and played
+      // nothing: a clock with no pattern looks exactly like a broken clock.
+      if (b.type === "seq") this.sendSteps(i, b.face);
     });
+  }
+
+  /** Sixty-four steps of active, note, velocity, gate — the face's layout. */
+  private sendSteps(block: number, face: number[]) {
+    const stride = 4, steps = 64;
+    for (let i = 0; i < steps; i++) {
+      const at = i * stride;
+      // An unedited grid has no face array yet, and its defaults live in the
+      // face. Every fourth step, middle C — the same thing the grid draws.
+      const has = face.length === steps * stride;
+      this.send({
+        type: "step",
+        block,
+        index: i,
+        active: has ? face[at]! > 0.5 : i % 4 === 0,
+        note: has ? Math.round(face[at + 1]!) : 60,
+        velocity: has ? face[at + 2]! : 0.9,
+        gate: has ? face[at + 3]! : 0.5,
+      });
+    }
   }
 
   setParam(project: Project, uid: string, paramId: string, value: number) {

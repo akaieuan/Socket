@@ -25,19 +25,30 @@ export function LayoutView({ store, dragType, onDropBlock }: {
   const stage = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [box, setBox] = useState({ w: project.size.w, h: project.size.h });
   const [dragging, setDragging] = useState<string | null>(null);
 
   useEffect(() => {
     const el = stage.current;
     if (!el) return;
-    const fit = () => {
+    const measure = () => {
       // clientWidth already excludes the stage's own padding, so this is only
       // the breathing room between the window and the edge of that box.
       const pad = 48;
-      setScale(Math.min(1, (el.clientWidth - pad) / project.size.w, (el.clientHeight - pad) / project.size.h));
+      const room = { w: el.clientWidth - pad, h: el.clientHeight - pad };
+
+      if (project.size.fit) {
+        // The window *is* the room. Drawn at one to one and rounded to the
+        // grid, so a fitted layout is still a layout you could ship.
+        setBox({ w: Math.max(600, Math.round(room.w / 12) * 12), h: Math.max(360, Math.round(room.h / 8) * 8) });
+        setScale(1);
+        return;
+      }
+      setBox({ w: project.size.w, h: project.size.h });
+      setScale(Math.min(1, room.w / project.size.w, room.h / project.size.h));
     };
-    fit();
-    const ro = new ResizeObserver(fit);
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, [project.size]);
@@ -53,7 +64,7 @@ export function LayoutView({ store, dragType, onDropBlock }: {
       onDrop={() => dragType && onDropBlock()}
       onPointerDown={() => store.setSelected(null)}
     >
-      <Frame project={project} page={activePage} onPage={store.setActivePage} scale={scale} bodyRef={body}>
+      <Frame project={project} page={activePage} onPage={store.setActivePage} scale={scale} box={box} bodyRef={body}>
         {(page?.blocks.length ?? 0) === 0 && (
           <p className="empty">Drag a block in, or click one on the left.</p>
         )}
@@ -61,7 +72,7 @@ export function LayoutView({ store, dragType, onDropBlock }: {
           <Panel
             key={b.uid}
             block={b}
-            gridWidth={project.size.w - 24}
+            gridWidth={box.w - 24}
             rowStep={(ROW + GAP) * scale}
             selected={b.uid === selected}
             dragging={b.uid === dragging}

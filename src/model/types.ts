@@ -97,7 +97,21 @@ export type Page = {
 /** One audio connection, block uid to block uid. */
 export type Wire = { from: string; to: string };
 
-export type Size = { name: string; w: number; h: number; from?: string };
+export type Size = {
+  name: string;
+  w: number;
+  h: number;
+  from?: string;
+  /**
+   * Grow to fill the canvas rather than sitting at a fixed size.
+   *
+   * Plenty of plugins are nearly as big as the screen, and a builder that only
+   * offers four fixed rectangles cannot design one. Fit takes whatever room the
+   * stage has, so the layout you draw is the layout at that size — and the
+   * footer still reports the pixels, because a plugin ships at a number.
+   */
+  fit?: boolean;
+};
 
 export const ACCENTS = ["blue", "rose", "amber", "violet", "green"] as const;
 export type Accent = (typeof ACCENTS)[number];
@@ -124,4 +138,5 @@ export const SIZES: Size[] = [
   { name: "Tall", w: 1080, h: 760, from: "Enzyme" },
   { name: "Large", w: 1380, h: 820, from: "i4" },
   { name: "Compact", w: 900, h: 480 },
+  { name: "Fit", w: 1600, h: 900, from: "fills the canvas", fit: true },
 ];

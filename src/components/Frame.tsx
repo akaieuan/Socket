@@ -13,23 +13,25 @@ import type { Project } from "../model/types";
  * seeing all of it at once is the whole reason for having a frame.
  */
 export function Frame({
-  project, page, onPage, scale, children, bodyRef,
+  project, page, onPage, scale, box, children, bodyRef,
 }: {
   project: Project;
   page: number;
   onPage: (i: number) => void;
   scale: number;
+  /** What it is actually drawn at — the same as size, unless it is fitting. */
+  box: { w: number; h: number };
   children: ReactNode;
   /** The grid itself, so the layout view can measure it for FLIP. */
   bodyRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div className="frame-scaler" style={{ width: project.size.w * scale, height: project.size.h * scale }}>
+    <div className="frame-scaler" style={{ width: box.w * scale, height: box.h * scale }}>
       <div
         className="frame"
         style={{
-          width: project.size.w,
-          height: project.size.h,
+          width: box.w,
+          height: box.h,
           transform: `scale(${scale})`,
           ["--plugin-accent" as string]: `var(--accent-${project.accent})`,
         }}
@@ -54,7 +56,10 @@ export function Frame({
         <div className="frame-body" ref={bodyRef}>{children}</div>
 
         <footer className="frame-foot">
-          <span>{project.size.w} × {project.size.h}</span>
+          {/* The pixels it would ship at, not the ones it happens to be scaled
+              to — a plugin ships at a number even when you designed it by
+              filling the window. */}
+          <span>{box.w} × {box.h}{project.size.fit ? " · fit" : ""}</span>
           <span>{project.pages[page]?.blocks.length ?? 0} blocks on {project.pages[page]?.name}</span>
         </footer>
       </div>
