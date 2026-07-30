@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { instantiate, initialProject } from "./project";
 import type { Accent, BlockInstance, Project, Size } from "./types";
 
@@ -13,22 +13,98 @@ import type { Accent, BlockInstance, Project, Size } from "./types";
 let pageSeq = 0;
 const nextPageId = () => `page-${++pageSeq}`;
 
+/** Deep enough for a session, shallow enough not to hold a hundred projects. */
+const HISTORY = 80;
+
+/**
+ * How long a run of small changes counts as one thing to undo.
+ *
+ * A knob drag produces a new project sixty times a second. Pushing each one
+ * makes undo useless — a hundred presses to get back past a single gesture —
+ * and pushing none loses the value you started from. Coalescing by time is the
+ * usual answer and it is right here: let go of the knob for half a second and
+ * the next move is a new entry.
+ */
+const COALESCE_MS = 500;
+
 export function useProject() {
   const [project, setProject] = useState<Project>(initialProject);
   const [activePage, setActivePage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const edit = useCallback((fn: (p: Project) => Project) => setProject(fn), []);
+  const past = useRef<Project[]>([]);
+  const future = useRef<Project[]>([]);
+  const lastPush = useRef(0);
+  const [depth, setDepth] = useState({ undo: 0, redo: 0 });
+  const sync = () => setDepth({ undo: past.current.length, redo: future.current.length });
+
+  /**
+   * Every change goes through here, so history is not something to remember.
+   *
+   * `coalesce` marks a change that is part of a gesture — dragging a knob, an
+   * edge, a step. Those merge into whatever entry is already open; everything
+   * else is its own.
+   */
+  const edit = useCallback((fn: (p: Project) => Project, coalesce = false) => {
+    setProject((p) => {
+      const now = Date.now();
+      const merge = coalesce && now - lastPush.current < COALESCE_MS;
+      if (!merge) {
+        past.current.push(p);
+        if (past.current.length > HISTORY) past.current.shift();
+        future.current.length = 0;
+      }
+      lastPush.current = now;
+      return fn(p);
+    });
+    sync();
+  }, []);
+
+  const undo = useCallback(() => {
+    setProject((p) => {
+      const prev = past.current.pop();
+      if (!prev) return p;
+      future.current.push(p);
+      lastPush.current = 0;   // never merge across an undo
+      return prev;
+    });
+    sync();
+  }, []);
+
+  const redo = useCallback(() => {
+    setProject((p) => {
+      const next = future.current.pop();
+      if (!next) return p;
+      past.current.push(p);
+      lastPush.current = 0;
+      return next;
+    });
+    sync();
+  }, []);
+
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+      const target = e.target as HTMLElement | null;
+      // A text field has its own undo, and taking it would be worse than
+      // having none — you would lose a rename you were halfway through.
+      if (target && (target.tagName === "INPUT" || target.isContentEditable)) return;
+      e.preventDefault();
+      e.shiftKey ? redo() : undo();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [undo, redo]);
 
   const patchBlock = useCallback(
-    (uid: string, fn: (b: BlockInstance) => BlockInstance) =>
+    (uid: string, fn: (b: BlockInstance) => BlockInstance, coalesce = false) =>
       edit((p) => ({
         ...p,
         pages: p.pages.map((pg) => ({
           ...pg,
           blocks: pg.blocks.map((b) => (b.uid === uid ? fn(b) : b)),
         })),
-      })),
+      }), coalesce),
     [edit],
   );
 
@@ -39,7 +115,15 @@ export function useProject() {
     selected,
     setSelected,
 
-    setName: (name: string) => edit((p) => ({ ...p, name })),
+    undo,
+    redo,
+    canUndo: depth.undo > 0,
+    canRedo: depth.redo > 0,
+
+    /** A whole project, from a preset or a file. Undoable like anything else. */
+    load: (next: Project) => { edit(() => next); setActivePage(0); setSelected(null); },
+
+    setName: (name: string) => edit((p) => ({ ...p, name }), true),
     setSize: (size: Size) => edit((p) => ({ ...p, size })),
     setAccent: (accent: Accent) => edit((p) => ({ ...p, accent })),
 
@@ -118,13 +202,13 @@ export function useProject() {
       })),
 
     patchBlock,
-    setSpan: (uid: string, span: number) => patchBlock(uid, (b) => ({ ...b, span })),
-    setRows: (uid: string, rows: number) => patchBlock(uid, (b) => ({ ...b, rows })),
-    setBox: (uid: string, span: number, rows: number) => patchBlock(uid, (b) => ({ ...b, span, rows })),
-    renameBlock: (uid: string, name: string) => patchBlock(uid, (b) => ({ ...b, name })),
+    setSpan: (uid: string, span: number) => patchBlock(uid, (b) => ({ ...b, span }), true),
+    setRows: (uid: string, rows: number) => patchBlock(uid, (b) => ({ ...b, rows }), true),
+    setBox: (uid: string, span: number, rows: number) => patchBlock(uid, (b) => ({ ...b, span, rows }), true),
+    renameBlock: (uid: string, name: string) => patchBlock(uid, (b) => ({ ...b, name }), true),
 
     /** Face-local state — a patch point, a step level, an XY position. */
-    setFace: (uid: string, face: number[]) => patchBlock(uid, (b) => ({ ...b, face })),
+    setFace: (uid: string, face: number[]) => patchBlock(uid, (b) => ({ ...b, face }), true),
 
     /** Every param at once, for presets and randomise. */
     setParams: (uid: string, values: number[]) =>
@@ -134,7 +218,7 @@ export function useProject() {
       patchBlock(uid, (b) => ({
         ...b,
         params: b.params.map((p) => (p.id === id ? { ...p, value } : p)),
-      })),
+      }), true),
 
     renameParam: (uid: string, id: string, label: string) =>
       patchBlock(uid, (b) => ({

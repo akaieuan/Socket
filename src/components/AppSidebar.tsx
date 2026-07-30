@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { CATALOG } from "@/model/catalog";
+import { PRESETS } from "@/model/presets";
 import { hasEngine } from "@/audio";
 import { GROUPS, type Group } from "@/model/types";
 import type { Store } from "@/model/useProject";
@@ -200,7 +201,27 @@ export function AppSidebar({
         )}
 
         {pane === "presets" && (
-          <Placeholder title="Presets" note="Saved instruments will live here." />
+          <SidebarGroup>
+            <p className="text-muted-foreground mb-2 text-[11px] leading-[1.5]">
+              Whole instruments — layout, wiring and patterns, not just knob values. Loading one
+              replaces what you have; ⌘Z brings it back.
+            </p>
+            <div className="flex flex-col gap-1">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => store.load(preset.make())}
+                  title={preset.note}
+                  className="border-card-border bg-card-alpha hover:border-card-border-hover hover:bg-card rounded-md border px-2 py-1.5 text-left transition-colors"
+                >
+                  <span className="block text-[13px] leading-tight">{preset.name}</span>
+                  <span className="text-muted-foreground mt-0.5 block text-[10px] leading-[1.4]">
+                    {preset.note}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </SidebarGroup>
         )}
         {pane === "settings" && (
           <Placeholder title="Settings" note="Build targets, output folder, JUCE path." />

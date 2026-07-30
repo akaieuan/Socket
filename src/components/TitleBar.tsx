@@ -64,6 +64,15 @@ export function TitleBar({
             <DropdownMenuShortcut>⇧⌘E</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={!store.canUndo} onClick={store.undo}>
+            <Icon name="up" /> Undo
+            <DropdownMenuShortcut>⌘Z</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!store.canRedo} onClick={store.redo}>
+            <Icon name="down" /> Redo
+            <DropdownMenuShortcut>⇧⌘Z</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuLabel>Window</DropdownMenuLabel>
           {[1180, 1080, 1380, 900].length > 0 && (
             <DropdownMenuItem disabled className="text-[11px]">

@@ -123,6 +123,26 @@ plugin looks like, and a preview drawn in a slightly different dialect breaks
 that quietly. The line runs at the edge of the plugin window: outside it,
 shadcn; inside it, ports.
 
+## Presets
+
+`src/model/presets.ts` — eight starting points. A preset here is a whole
+instrument, not a bank of parameter values: the layout, the wiring, the patch
+cables and the sequencer pattern as well as every knob. That is what Socket
+makes, so it is what a preset has to be — a parameter set would only be
+meaningful against a layout you had already built, which is the thing a
+starting point is supposed to save you.
+
+Written as a compact spec with parameters named rather than indexed, so a
+preset reads like a patch sheet and stays writable by hand.
+
+## Undo
+
+The whole project is one value and every operation is a pure transform over it,
+so history is a stack of past values. Gestures coalesce: a knob drag produces a
+new project sixty times a second, and pushing each one makes undo useless while
+pushing none loses the value you started from — let go for half a second and the
+next move is a new entry.
+
 ## Design tokens
 
 The palette is not defined here. `pnpm sync:tokens` reads
