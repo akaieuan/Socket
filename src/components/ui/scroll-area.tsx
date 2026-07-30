@@ -1,12 +1,26 @@
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { cn } from "@/lib/utils";
 
-function ScrollArea({ className, children, ...props }: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+/**
+ * `fitWidth` stops the content sizing to itself.
+ *
+ * Radix wraps the viewport's children in a `display: table` div so wide content
+ * can scroll sideways. That is right for a routing matrix and wrong for a
+ * fixed-width panel: the inspector's sections sized to their own content rather
+ * than to the 256px column, and everything in them sat fifteen pixels past the
+ * right edge of the window. A panel that should never scroll sideways says so.
+ */
+function ScrollArea({
+  className, children, fitWidth = false, ...props
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & { fitWidth?: boolean }) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative", className)} {...props}>
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/40 size-full rounded-[inherit] outline-none focus-visible:ring-[3px]"
+        className={cn(
+          "focus-visible:ring-ring/40 size-full rounded-[inherit] outline-none focus-visible:ring-[3px]",
+          fitWidth && "[&>div]:!block [&>div]:!w-full",
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

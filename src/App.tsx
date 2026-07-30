@@ -64,7 +64,9 @@ export function App() {
           <TitleBar store={store} view={view} onView={setView} theme={theme} onTheme={setTheme} sound={sound} />
 
           <div className="flex min-h-0 flex-1">
-            <main className="flex min-w-0 flex-1 flex-col">
+            {/* Not a <main>: SidebarInset already is one, and two of them is
+                invalid and tells a screen reader there are two documents. */}
+            <section className="flex min-w-0 flex-1 flex-col">
               {view === "layout" ? (
                 <LayoutView
                   store={store}
@@ -83,9 +85,11 @@ export function App() {
                   </div>
                 </ScrollArea>
               )}
-            </main>
+            </section>
 
-            <ScrollArea className="border-hairline w-64 flex-none border-l">
+            {/* Fits rather than scrolls sideways — see ScrollArea for why that
+                is not the default, and what it was doing before. */}
+            <ScrollArea fitWidth className="border-hairline w-64 flex-none border-l">
               <Inspector store={store} />
             </ScrollArea>
           </div>

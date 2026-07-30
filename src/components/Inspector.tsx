@@ -67,22 +67,24 @@ function Transport({ store }: { store: Store }) {
 
   return (
     <Section title="Transport">
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1 gap-1.5 font-mono text-[10px] tracking-wider uppercase"
+          // Shrinkable, and the label truncates rather than pushing the row
+          // wider than the panel — which is what it was doing.
+          className="min-w-0 flex-1 gap-1.5 font-mono text-[10px] tracking-wider uppercase"
           onClick={() => void sound.start()}
         >
-          <span className={`size-1.5 rounded-full ${sound.running ? "bg-accent-green" : "bg-muted-foreground"}`} />
-          {sound.running ? "Live" : "Enable audio"}
+          <span className={`size-1.5 shrink-0 rounded-full ${sound.running ? "bg-accent-green" : "bg-muted-foreground"}`} />
+          <span className="truncate">{sound.running ? "Live" : "Enable audio"}</span>
         </Button>
 
         {seqs.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 font-mono text-[10px] tracking-wider uppercase"
+            className="shrink-0 gap-1.5 font-mono text-[10px] tracking-wider uppercase"
             // All of them, because "play" means the instrument rather than one
             // block — and the per-sequencer buttons are right there below.
             onClick={() => seqs.forEach((b) => { if (runOf(b.uid).on === anyRunning) toggle(b.uid); })}
