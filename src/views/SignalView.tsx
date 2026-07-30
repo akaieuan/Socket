@@ -3,6 +3,9 @@ import { byType } from "@/model/catalog";
 import { audioBlocks, modBlocks } from "@/model/project";
 import type { Project } from "@/model/types";
 import { Label } from "@/components/ui/label";
+import { chainOf } from "@/audio/chain";
+import { hasEngine } from "@/audio";
+import { Icon } from "@/design/PixelIcon";
 
 /**
  * Signal flow — the dimension the layout could never express.
@@ -12,10 +15,14 @@ import { Label } from "@/components/ui/label";
  * conflating them was the deepest thing wrong with the first version — a filter
  * drawn to the left of an oscillator is a layout choice, not a routing one.
  *
- * Click a source then a destination to wire or unwire them. Deliberately a
- * matrix rather than a node canvas: a plugin chain is nearly always short and
- * mostly linear, and a matrix shows every possible connection at once, including
- * the ones you have not made.
+ * Until now this view stored wires the engine ignored, which made it a diagram
+ * of an intention. It drives the engine's order now.
+ *
+ * Two ways of showing the same thing, because they answer different questions.
+ * The strip along the top is the chain as it will run — what you want when you
+ * arrive and ask "what is this instrument doing". The matrix below is for
+ * editing: it shows every connection you *could* make, including the ones you
+ * have not, which a chain drawing cannot.
  */
 /** A titled group, matching the inspector's rhythm. */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -41,6 +48,8 @@ export function SignalView({
 }) {
   const audio = audioBlocks(project);
   const mods = modBlocks(project);
+  const blocks = project.pages.flatMap((p) => p.blocks);
+  const chain = chainOf(project);
   const has = (from: string, to: string) => project.wires.some((w) => w.from === from && w.to === to);
 
   if (audio.length === 0) {
@@ -49,6 +58,45 @@ export function SignalView({
 
   return (
     <div className="signal">
+      <Section title="Chain">
+        <Hint>
+          The order the engine runs in, worked out from the wires below. Where a panel sits on the face
+          is a layout choice; this is the routing one, and they are different questions.
+        </Hint>
+
+        {/* The answer to "what is this instrument doing", which a matrix of
+            empty squares cannot give however correct it is. */}
+        <div className="chain-strip">
+          {chain.order.map((i, k) => {
+            const b = blocks[i]!;
+            const heard = chain.reaching.has(b.uid);
+            return (
+              <Fragment key={b.uid}>
+                {k > 0 && <Icon name="signal" className="chain-arrow" />}
+                <button
+                  className={`chain-node${b.uid === selected ? " on" : ""}${heard ? "" : " unheard"}${hasEngine(b.type) ? "" : " silent"}`}
+                  onClick={() => onSelect(b.uid)}
+                  title={
+                    !heard ? `${b.name} reaches no output — nothing it makes is heard`
+                    : !hasEngine(b.type) ? `${b.name} has no engine yet`
+                    : b.name
+                  }
+                >
+                  {b.name}
+                </button>
+              </Fragment>
+            );
+          })}
+        </div>
+
+        {chain.cyclic && (
+          <p className="chain-warn">
+            These wires contain a loop. The engine has broken it to keep playing — follow the chain
+            above to see where.
+          </p>
+        )}
+      </Section>
+
       <Section title="Audio routing">
         <Hint>
           Rows send, columns receive. A block only appears where its ports allow it — a source has no
@@ -71,7 +119,7 @@ export function SignalView({
             return (
               <Fragment key={from.uid}>
                 <button
-                  className={`matrix-row${selected === from.uid ? " on" : ""}`}
+                  className={`matrix-row${selected === from.uid ? " on" : ""}${chain.reaching.has(from.uid) ? "" : " unheard"}`}
                   onClick={() => onSelect(from.uid)}
                 >
                   {from.name}

@@ -70,6 +70,15 @@ export function useAudio(project: Project) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patch, shape, running]);
 
+  // The wires, as their own signal. A wire drawn or pulled changes the order
+  // the engine runs in and nothing else, so it does not warrant a rebuild.
+  const wires = project.wires.map((w) => `${w.from}>${w.to}`).sort().join(",");
+
+  useEffect(() => {
+    if (running) audio.setChain(project);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wires, shape, running]);
+
   useEffect(() => {
     if (running) audio.setProject(project);
     // Deliberately keyed on the shape rather than the project value: a knob

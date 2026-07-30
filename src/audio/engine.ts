@@ -1,6 +1,7 @@
 import { byType } from "@/model/catalog";
 import type { Project } from "@/model/types";
 import { BLOCK_TYPE } from "./blocks.generated";
+import { chainOf } from "./chain";
 
 /**
  * The main-thread side of the audio engine.
@@ -49,6 +50,7 @@ type Message =
   | { type: "step"; block: number; index: number; active: boolean; note: number; velocity: number; gate: number }
   | { type: "noteOn"; note: number; velocity: number }
   | { type: "noteOff"; note: number }
+  | { type: "chain"; order: number[] }
   | { type: "mods"; routes: Array<{ source: number; block: number; param: number; depth: number }> }
   | { type: "modDepth"; value: number }
   | { type: "modSlew"; value: number }
@@ -133,6 +135,7 @@ export class Audio {
   setProject(project: Project) {
     const blocks = project.pages.flatMap((p) => p.blocks);
     this.send({ type: "blocks", types: blocks.map((b) => BLOCK_TYPE[b.type] ?? 0) });
+    this.setChain(project);
     blocks.forEach((b, i) => {
       const def = byType(b.type);
       if (!def) return;
@@ -173,6 +176,17 @@ export class Audio {
     const block = project.pages.flatMap((p) => p.blocks).findIndex((b) => b.uid === uid);
     if (block < 0) return;
     this.send({ type: "step", block, index, ...step });
+  }
+
+  /**
+   * The order to run blocks in, from the wires.
+   *
+   * Sent separately from the block list rather than reordering it: the
+   * interface addresses a parameter by its position in that list, so sorting
+   * the list would point every knob at the wrong block.
+   */
+  setChain(project: Project) {
+    this.send({ type: "chain", order: chainOf(project).order });
   }
 
   /** Every cable at once. See the worklet for why it is not incremental. */

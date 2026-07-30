@@ -1,5 +1,5 @@
 import { Icon } from "@/design/PixelIcon";
-import { hasEngine } from "@/audio";
+import { hasEngine, useAudioContext } from "@/audio";
 import { byType } from "@/model/catalog";
 import { findBlock } from "@/model/project";
 import { ACCENTS, SIZES, type Accent } from "@/model/types";
@@ -25,7 +25,104 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 export function Inspector({ store }: { store: Store }) {
   const { project, selected } = store;
   const block = selected ? findBlock(project, selected) : null;
-  return block ? <BlockInspector store={store} uid={block.uid} /> : <ProjectInspector store={store} />;
+  return (
+    <>
+      <Transport store={store} />
+      <Separator />
+      {block ? <BlockInspector store={store} uid={block.uid} /> : <ProjectInspector store={store} />}
+    </>
+  );
+}
+
+/**
+ * The transport, above everything.
+ *
+ * Playing and stopping is not a property of whatever you happen to have
+ * selected, and it should not disappear when you click a knob. It sits at the
+ * top of the panel that is always there — which is the same reason a DAW puts
+ * its transport in the chrome rather than in the track inspector.
+ *
+ * Sequencers are listed rather than aggregated: an instrument can have two, and
+ * "playing" is not a single fact about it.
+ */
+function Transport({ store }: { store: Store }) {
+  const sound = useAudioContext();
+  const { project } = store;
+  const seqs = project.pages.flatMap((p) => p.blocks).filter((b) => b.type === "seq");
+
+  const runOf = (uid: string) => {
+    const b = findBlock(project, uid);
+    const p = b?.params.find((x) => x.id.startsWith("run-"));
+    return { id: p?.id, on: (p?.value ?? 0) > 0.5 };
+  };
+
+  const toggle = (uid: string) => {
+    const { id, on } = runOf(uid);
+    if (!id) return;
+    store.setParam(uid, id, on ? 0 : 1);
+    sound.setParam(uid, id, on ? 0 : 1);
+  };
+
+  const anyRunning = seqs.some((b) => runOf(b.uid).on);
+
+  return (
+    <Section title="Transport">
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant={sound.running ? "outline" : "default"}
+          size="sm"
+          className="flex-1 gap-1.5 font-mono text-[10px] tracking-wider uppercase"
+          onClick={() => void sound.start()}
+        >
+          <span className={`size-1.5 rounded-full ${sound.running ? "bg-accent-green" : "bg-muted-foreground"}`} />
+          {sound.running ? "Live" : "Enable audio"}
+        </Button>
+
+        {seqs.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 font-mono text-[10px] tracking-wider uppercase"
+            // All of them, because "play" means the instrument rather than one
+            // block — and the per-sequencer buttons are right there below.
+            onClick={() => seqs.forEach((b) => { if (runOf(b.uid).on === anyRunning) toggle(b.uid); })}
+          >
+            {anyRunning ? "Stop" : "Play"}
+          </Button>
+        )}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={() => sound.panic()} aria-label="All notes off">
+              <Icon name="close" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>All notes off · Esc</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {seqs.length > 1 && (
+        <div className="mt-1.5 space-y-1">
+          {seqs.map((b) => (
+            <button
+              key={b.uid}
+              onClick={() => toggle(b.uid)}
+              className="border-card-border bg-card-alpha hover:border-card-border-hover flex w-full items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px]"
+            >
+              <span className={`size-1.5 rounded-full ${runOf(b.uid).on ? "bg-accent-green" : "bg-muted-foreground/40"}`} />
+              {b.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {sound.running && (
+        <p className="text-muted-foreground mt-1.5 font-mono text-[10px]">
+          {sound.status.voices} voice{sound.status.voices === 1 ? "" : "s"} · oct {sound.octave} · A–L plays
+        </p>
+      )}
+    </Section>
+  );
 }
 
 /** A titled group. The rhythm of the whole panel lives here. */

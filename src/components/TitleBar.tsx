@@ -75,32 +75,13 @@ export function TitleBar({
 
       <div className="flex-1" />
 
-      {/* The transport. It used to read "nothing makes sound yet", which was
-          true and is the one label in the app worth deleting. */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={sound.running ? "outline" : "default"}
-            size="sm"
-            className="no-drag h-6 gap-1.5 px-2 font-mono text-[10px] tracking-wider uppercase"
-            onClick={() => void sound.start()}
-          >
-            <span
-              className={`size-1.5 rounded-full ${sound.running ? "bg-accent-green" : "bg-muted-foreground"}`}
-            />
-            {sound.running ? "Live" : "Enable audio"}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {sound.running
-            ? "A–L plays, Z / X shifts octave, Esc panics"
-            : "Browsers need a click before they will make a sound"}
-        </TooltipContent>
-      </Tooltip>
-
+      {/* Only the state, not the controls. The transport lives in the panel
+          that is always on screen; two of them is one too many, and the one in
+          the chrome is the one you cannot reach from where you are working. */}
       {sound.running && (
-        <span className="text-muted-foreground no-drag font-mono text-[10px] tabular-nums">
-          oct {sound.octave}
+        <span className="text-muted-foreground no-drag flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase">
+          <span className="bg-accent-green size-1.5 rounded-full" />
+          Live
         </span>
       )}
 

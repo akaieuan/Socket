@@ -202,7 +202,7 @@ button { font: inherit; color: inherit; }
 }
 /* Same surface behind the routing matrix, so switching views does not switch
    the room you are standing in. */
-.scroll { background: var(--stage); }
+.scroll { background: var(--stage); min-height: 100%; }
 .frame-scaler { position: relative; flex: none; }
 /* The one shadow in the app. Everywhere else depth is a border — that is the
    house rule and it holds for cards sitting *in* a layout. This is a window
@@ -380,6 +380,31 @@ button { font: inherit; color: inherit; }
 .cell:hover:not(:disabled) { border-color: var(--accent-blue); }
 .cell.wired { background: var(--accent-blue); border-color: var(--accent-blue); }
 .cell.illegal { opacity: 0.16; cursor: default; }
+
+/* ── the signal chain ──────────────────────────────────────────────────
+   The order the engine runs in, as a strip. The matrix below is right for
+   editing — it shows every connection you could make — and poor for reading,
+   which is the question people actually arrive with. */
+.chain-strip {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.3rem; margin-top: 0.6rem;
+}
+.chain-node {
+  cursor: pointer; font-size: 0.78rem; padding: 0.3rem 0.6rem;
+  background: var(--card-alpha); color: var(--foreground);
+  border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+}
+.chain-node:hover { border-color: var(--card-border-hover); }
+.chain-node.on { border-color: var(--accent-blue); }
+/* Makes audio and sends it nowhere. Nothing said so before, and a block you
+   cannot hear looks exactly like one you can. */
+.chain-node.unheard { opacity: 0.42; text-decoration: line-through; }
+.chain-node.silent { color: var(--muted-foreground); }
+.chain-arrow { color: var(--muted-foreground); opacity: 0.5; }
+.chain-warn {
+  color: var(--accent-amber); font-size: 0.72rem; margin: 0.5rem 0 0;
+}
+.matrix-row.unheard { opacity: 0.45; }
 
 .mod-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
 .mod-chip {
