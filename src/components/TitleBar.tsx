@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
@@ -6,6 +7,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Store } from "@/model/useProject";
+import type { AudioBinding } from "@/audio";
 import { Icon } from "@/design/PixelIcon";
 
 export type View = "layout" | "signal";
@@ -25,13 +27,14 @@ export type Theme = "dark" | "light";
  * there.
  */
 export function TitleBar({
-  store, view, onView, theme, onTheme,
+  store, view, onView, theme, onTheme, sound,
 }: {
   store: Store;
   view: View;
   onView: (v: View) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
+  sound: AudioBinding;
 }) {
   const { project } = store;
   const blocks = project.pages.reduce((n, p) => n + p.blocks.length, 0);
@@ -71,6 +74,37 @@ export function TitleBar({
       </DropdownMenu>
 
       <div className="flex-1" />
+
+      {/* The transport. It used to read "nothing makes sound yet", which was
+          true and is the one label in the app worth deleting. */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={sound.running ? "outline" : "default"}
+            size="sm"
+            className="no-drag h-6 gap-1.5 px-2 font-mono text-[10px] tracking-wider uppercase"
+            onClick={() => void sound.start()}
+          >
+            <span
+              className={`size-1.5 rounded-full ${sound.running ? "bg-accent-green" : "bg-muted-foreground"}`}
+            />
+            {sound.running ? "Live" : "Enable audio"}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {sound.running
+            ? "A–L plays, Z / X shifts octave, Esc panics"
+            : "Browsers need a click before they will make a sound"}
+        </TooltipContent>
+      </Tooltip>
+
+      {sound.running && (
+        <span className="text-muted-foreground no-drag font-mono text-[10px] tabular-nums">
+          oct {sound.octave}
+        </span>
+      )}
+
+      <Separator orientation="vertical" className="no-drag mx-0.5 !h-4" />
 
       <ToggleGroup
         type="single"

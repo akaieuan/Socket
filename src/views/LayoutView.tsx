@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Frame } from "../components/Frame";
-import { Panel } from "../components/Panel";
-import type { Store } from "../model/useProject";
+import { Frame } from "@/components/Frame";
+import { Panel } from "@/components/Panel";
+import type { Store } from "@/model/useProject";
+import { useAudioContext } from "@/audio";
 
 /** One grid row unit, and the gap between them. Together they set the step. */
 export const ROW = 8;
@@ -20,6 +21,7 @@ export function LayoutView({ store, dragType, onDropBlock }: {
   onDropBlock: () => void;
 }) {
   const { project, activePage, selected } = store;
+  const sound = useAudioContext();
   const stage = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -63,7 +65,10 @@ export function LayoutView({ store, dragType, onDropBlock }: {
             dragging={b.uid === dragging}
             wired={project.wires.some((w) => w.from === b.uid || w.to === b.uid)}
             onSelect={() => store.setSelected(b.uid)}
-            onParam={(id, v) => store.setParam(b.uid, id, v)}
+            /* Both, every time. The store owns the value the UI draws and the
+               preset saves; the engine needs it inside the same frame or the
+               knob moves before the sound does. */
+            onParam={(id, v) => { store.setParam(b.uid, id, v); sound.setParam(b.uid, id, v); }}
             onFace={(v) => store.setFace(b.uid, v)}
             onBox={(span, rows) => store.setBox(b.uid, span, rows)}
             onRemove={() => { store.removeBlock(b.uid); if (selected === b.uid) store.setSelected(null); }}

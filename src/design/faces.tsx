@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import type { BlockInstance, Face } from "../model/types";
+import type { BlockInstance, Face } from "@/model/types";
+import { useAudioContext } from "@/audio";
 
 /**
  * The faces — everything a block draws that is not a knob.
@@ -482,15 +483,33 @@ function XY({ block, onFace }: FaceProps) {
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 
-/** Two octaves. Held notes persist, so a chord can be part of the layout. */
-function Keys({ block, onFace }: FaceProps) {
+/**
+ * A keyboard that plays.
+ *
+ * Press and hold, the way a key works — the earlier version latched, which was
+ * the honest behaviour for a mock and is the wrong one the moment there is a
+ * sound to sustain. Held notes still show, but they show because they are
+ * sounding rather than because they were clicked.
+ *
+ * C2 upward, so the range lands where a synth patch is usually voiced.
+ */
+function Keys({ block }: FaceProps) {
+  const sound = useAudioContext();
   const n = [12, 24, 36, 61][pick(block, "range", 1)] ?? 24;
-  const held = useFaceState(block, n, () => 0);
-  const hit = (i: number) => {
-    const next = held.slice();
-    next[i] = next[i] ? 0 : 1;
-    onFace(next);
+  const base = 36;
+
+  const press = (i: number) => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    const note = base + i;
+    sound.noteOn(note, 0.9);
+    const release = () => {
+      sound.noteOff(note);
+      window.removeEventListener("pointerup", release);
+    };
+    window.addEventListener("pointerup", release);
   };
+
+  const held = (i: number) => sound.held.includes(base + i);
   const whites = Array.from({ length: n }, (_, i) => i).filter((i) => !BLACK.has(i % 12));
 
   return (
@@ -498,9 +517,9 @@ function Keys({ block, onFace }: FaceProps) {
       {whites.map((i, w) => (
         <button
           key={i}
-          className={`key-w${held[i] ? " on" : ""}`}
+          className={`key-w${held(i) ? " on" : ""}`}
           style={{ left: `${(w / whites.length) * 100}%`, width: `${100 / whites.length}%` }}
-          onPointerDown={(e) => { e.stopPropagation(); hit(i); }}
+          onPointerDown={press(i)}
           aria-label={`Key ${i}`}
         />
       ))}
@@ -509,9 +528,9 @@ function Keys({ block, onFace }: FaceProps) {
         return (
           <button
             key={i}
-            className={`key-b${held[i] ? " on" : ""}`}
+            className={`key-b${held(i) ? " on" : ""}`}
             style={{ left: `${(before / whites.length) * 100}%`, width: `${100 / whites.length * 0.62}%` }}
-            onPointerDown={(e) => { e.stopPropagation(); hit(i); }}
+            onPointerDown={press(i)}
             aria-label={`Key ${i}`}
           />
         );

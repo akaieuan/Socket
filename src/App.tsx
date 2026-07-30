@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useProject } from "@/model/useProject";
+import { AudioProvider, useAudio } from "@/audio";
 import { AppSidebar, type Pane } from "@/components/AppSidebar";
 import { Inspector } from "@/components/Inspector";
 import { TitleBar, type Theme, type View } from "@/components/TitleBar";
@@ -30,6 +31,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
  */
 export function App() {
   const store = useProject();
+  const sound = useAudio(store.project);
   const [view, setView] = useState<View>("layout");
   const [pane, setPane] = useState<Pane>("blocks");
   const [dragType, setDragType] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function App() {
   }, [theme]);
 
   return (
+    <AudioProvider value={sound}>
     <TooltipProvider>
       <SidebarProvider className="h-screen min-h-0">
         <AppSidebar
@@ -55,7 +58,7 @@ export function App() {
         />
 
         <SidebarInset className="min-h-0">
-          <TitleBar store={store} view={view} onView={setView} theme={theme} onTheme={setTheme} />
+          <TitleBar store={store} view={view} onView={setView} theme={theme} onTheme={setTheme} sound={sound} />
 
           <div className="flex min-h-0 flex-1">
             <main className="flex min-w-0 flex-1 flex-col">
@@ -86,5 +89,6 @@ export function App() {
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
+    </AudioProvider>
   );
 }
