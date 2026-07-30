@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { BlockInstance, Face } from "@/model/types";
-import { useAudioContext } from "@/audio";
+import { useAudioContext, useProjectContext, modSources, modTargets } from "@/audio";
 
 /**
  * The faces — everything a block draws that is not a knob.
@@ -336,9 +336,6 @@ function Curve({ block }: FaceProps) {
 
 /* ── interactive faces ────────────────────────────────────────────────── */
 
-const PATCH_SRC = ["OSC", "SUB", "ENV", "LFO", "SEQ", "VEL"];
-const PATCH_DST = ["PITCH", "CUTOFF", "LEVEL", "FOLD", "PAN", "SEND"];
-
 /** One per source, so a bundle of cables can be read apart. */
 const CABLE_HUE = ["--accent-blue", "--accent-rose", "--accent-amber", "--accent-violet", "--accent-green", "--foreground"];
 
@@ -360,7 +357,13 @@ const CABLE_HUE = ["--accent-blue", "--accent-rose", "--accent-amber", "--accent
  * cable, and the sag is what lets your eye follow one across three others.
  */
 function Matrix({ block, onFace }: FaceProps) {
-  const rows = PATCH_SRC.length, cols = PATCH_DST.length;
+  const project = useProjectContext();
+  // Both sides resolve against the project. A jack with nothing behind it is
+  // drawn dead rather than hidden — the panel keeps its shape, and you can see
+  // that the cable you want needs a block you have not placed.
+  const sources = project ? modSources(project) : [];
+  const targets = project ? modTargets(project) : [];
+  const rows = 6, cols = 6;
   // Kept as the same source×destination grid the matrix used, so an existing
   // patch survives the change — the encoding was never the problem.
   const cells = useFaceState(block, rows * cols, () => 0);
@@ -420,18 +423,22 @@ function Matrix({ block, onFace }: FaceProps) {
   return (
     <div className="patchbay" ref={box}>
       <div className="patch-side patch-src">
-        {PATCH_SRC.map((label, i) => (
-          <button
-            key={label}
-            className={`patch-jack${patched.some((p) => p.src === i) ? " on" : ""}`}
-            style={{ color: `var(${CABLE_HUE[i]})` }}
-            onPointerDown={start(i)}
-            title={`Drag ${label} to a destination`}
-          >
-            <span className="patch-label">{label}</span>
-            <span className="patch-hole" />
-          </button>
-        ))}
+        {Array.from({ length: rows }, (_, i) => {
+          const src = sources[i];
+          const live = !!src && src.block >= 0;
+          return (
+            <button
+              key={i}
+              className={`patch-jack${patched.some((p) => p.src === i) ? " on" : ""}${live ? "" : " dead"}`}
+              style={{ color: `var(${CABLE_HUE[i]})` }}
+              onPointerDown={live ? start(i) : undefined}
+              title={live ? `Drag ${src.label} to a destination` : "No modulator here — place an LFO, Sequencer or Random"}
+            >
+              <span className="patch-label">{src?.label ?? "—"}</span>
+              <span className="patch-hole" />
+            </button>
+          );
+        })}
       </div>
 
       {/* The cables sit above the jacks and below the pointer: they have to be
@@ -456,17 +463,21 @@ function Matrix({ block, onFace }: FaceProps) {
       </svg>
 
       <div className="patch-side patch-dst">
-        {PATCH_DST.map((label, i) => (
-          <button
-            key={label}
-            className={`patch-jack${patched.some((p) => p.dst === i) ? " on" : ""}`}
-            title={label}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <span className="patch-hole" />
-            <span className="patch-label">{label}</span>
-          </button>
-        ))}
+        {Array.from({ length: cols }, (_, i) => {
+          const dst = targets[i];
+          const live = !!dst && dst.block >= 0;
+          return (
+            <button
+              key={i}
+              className={`patch-jack${patched.some((p) => p.dst === i) ? " on" : ""}${live ? "" : " dead"}`}
+              title={live ? `${dst.name} → ${dst.via}` : `${dst?.name ?? ""} — nothing in the project can be this yet`}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <span className="patch-hole" />
+              <span className="patch-label">{dst?.name ?? "—"}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

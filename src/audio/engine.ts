@@ -49,6 +49,9 @@ type Message =
   | { type: "step"; block: number; index: number; active: boolean; note: number; velocity: number; gate: number }
   | { type: "noteOn"; note: number; velocity: number }
   | { type: "noteOff"; note: number }
+  | { type: "mods"; routes: Array<{ source: number; block: number; param: number; depth: number }> }
+  | { type: "modDepth"; value: number }
+  | { type: "modSlew"; value: number }
   | { type: "panic" };
 
 /** What the audio thread reports back, thirty times a second. */
@@ -171,6 +174,14 @@ export class Audio {
     if (block < 0) return;
     this.send({ type: "step", block, index, ...step });
   }
+
+  /** Every cable at once. See the worklet for why it is not incremental. */
+  setMods(routes: Array<{ source: number; block: number; param: number; depth: number }>) {
+    this.send({ type: "mods", routes });
+  }
+
+  setModDepth(value: number) { this.send({ type: "modDepth", value }); }
+  setModSlew(value: number) { this.send({ type: "modSlew", value }); }
 
   noteOn(note: number, velocity = 0.9) { this.send({ type: "noteOn", note, velocity }); }
   noteOff(note: number) { this.send({ type: "noteOff", note }); }

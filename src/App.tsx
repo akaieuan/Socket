@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useProject } from "@/model/useProject";
-import { AudioProvider, useAudio } from "@/audio";
+import { AudioProvider, ProjectProvider, useAudio } from "@/audio";
 import { AppSidebar, type Pane } from "@/components/AppSidebar";
 import { Inspector } from "@/components/Inspector";
 import { TitleBar, type Theme, type View } from "@/components/TitleBar";
@@ -47,6 +47,7 @@ export function App() {
 
   return (
     <AudioProvider value={sound}>
+    <ProjectProvider value={store.project}>
     <TooltipProvider>
       <SidebarProvider className="h-screen min-h-0">
         <AppSidebar
@@ -89,6 +90,7 @@ export function App() {
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
+    </ProjectProvider>
     </AudioProvider>
   );
 }

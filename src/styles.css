@@ -460,6 +460,10 @@ button { font: inherit; color: inherit; }
 }
 .patch-jack.on .patch-hole { border-color: currentColor; background: currentColor; }
 .patch-jack:hover .patch-hole { border-color: currentColor; }
+/* A jack with nothing behind it. Drawn, not hidden: the panel keeps its shape,
+   and you can see that the cable you want needs a block you have not placed. */
+.patch-jack.dead { cursor: default; opacity: 0.32; }
+.patch-jack.dead:hover .patch-hole { border-color: var(--card-border-hover); }
 
 .patch-wires {
   position: absolute; inset: 0; width: 100%; height: 100%;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { audio, type Status } from "./engine";
 import type { Project } from "@/model/types";
+import { routesFrom } from "./modulation";
 
 /**
  * Two rows of the computer keyboard as a piano.
@@ -42,6 +43,32 @@ export function useAudio(project: Project) {
     .flatMap((p) => p.blocks)
     .map((b) => `${b.uid}:${b.type}`)
     .join(",");
+
+  /**
+   * Every patch bay's cells and its Depth, as one string.
+   *
+   * The routes are recomputed from the project whenever this changes — which
+   * covers a cable being pulled, a block being added that a destination now
+   * resolves to, and the Depth knob moving. Watching the project object would
+   * fire on every knob turn; watching only the cells would miss a Filter being
+   * placed after the cable was drawn.
+   */
+  const patch = project.pages
+    .flatMap((p) => p.blocks)
+    .filter((b) => b.type === "patch")
+    .map((b) => `${b.face.join("")}|${b.params.map((p) => p.value.toFixed(3)).join(",")}`)
+    .join(";");
+
+  useEffect(() => {
+    if (!running) return;
+    const bays = project.pages.flatMap((p) => p.blocks).filter((b) => b.type === "patch");
+    const depth = bays[0]?.params[0]?.value ?? 0.5;
+    const slew = bays[0]?.params[1]?.value ?? 0.1;
+    audio.setModDepth(depth);
+    audio.setModSlew(slew);
+    audio.setMods(bays.flatMap((b) => routesFrom(project, b.face, 1)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patch, shape, running]);
 
   useEffect(() => {
     if (running) audio.setProject(project);

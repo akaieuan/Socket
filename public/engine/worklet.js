@@ -65,6 +65,15 @@ class EngineProcessor extends AudioWorkletProcessor {
         e._aka_commit_blocks();
         break;
       case "param":    e._aka_set_param(msg.block, msg.index, msg.value); break;
+      case "mods":
+        // Sent whole, not incrementally: a cable pulled has to restore its
+        // destination, and the engine can only do that while it still knows
+        // what the cable was.
+        e._aka_clear_mods();
+        msg.routes.forEach((r, i) => e._aka_set_mod(i, r.source, r.block, r.param, r.depth));
+        break;
+      case "modDepth": e._aka_set_mod_depth(msg.value); break;
+      case "modSlew":  e._aka_set_mod_slew(msg.value); break;
       case "step":
         e._aka_set_step(msg.block, msg.index, msg.active ? 1 : 0, msg.note, msg.velocity, msg.gate);
         break;
