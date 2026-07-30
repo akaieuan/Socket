@@ -1,8 +1,8 @@
 import { Fragment } from "react";
-import { byType } from "../model/catalog";
-import { audioBlocks, modBlocks } from "../model/project";
-import type { Project } from "../model/types";
-import { Hint, Section } from "../design/controls";
+import { byType } from "@/model/catalog";
+import { audioBlocks, modBlocks } from "@/model/project";
+import type { Project } from "@/model/types";
+import { Label } from "@/components/ui/label";
 
 /**
  * Signal flow — the dimension the layout could never express.
@@ -17,6 +17,20 @@ import { Hint, Section } from "../design/controls";
  * mostly linear, and a matrix shows every possible connection at once, including
  * the ones you have not made.
  */
+/** A titled group, matching the inspector's rhythm. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8">
+      <Label className="mb-2">{title}</Label>
+      {children}
+    </section>
+  );
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="text-muted-foreground max-w-prose text-[12px] leading-[1.6]">{children}</p>;
+}
+
 export function SignalView({
   project, onWire, onSelect, selected,
 }: {

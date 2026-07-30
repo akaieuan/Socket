@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { CATALOG } from "../model/catalog";
-import { GROUPS, type Group } from "../model/types";
-import { TextInput } from "../design/controls";
-import { GROUP_ICONS, PixelIcon } from "../design/PixelIcon";
+import { CATALOG } from "@/model/catalog";
+import { GROUPS, type Group } from "@/model/types";
+import { Input } from "@/components/ui/input";
+import { GROUP_ICONS, PixelIcon } from "@/design/PixelIcon";
 
 /**
  * The block palette, grouped by what a block does to the signal.
@@ -40,7 +40,7 @@ export function Palette({
   return (
     <>
       <div className="palette-search">
-        <TextInput value={q} onChange={setQ} placeholder="Filter blocks…" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter blocks…" spellCheck={false} />
       </div>
 
       {GROUPS.map((group) => {

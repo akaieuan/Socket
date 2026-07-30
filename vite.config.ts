@@ -1,5 +1,7 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 /**
  * The renderer's dev server.
@@ -14,7 +16,14 @@ import react from "@vitejs/plugin-react";
  * CMake and actually build what it generates.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: { "@": path.resolve(import.meta.dirname, "src") },
+    // Radix ships a lot of packages that each depend on React. One resolved
+    // copy or the hooks throw — and the failure mode is a wall of "invalid hook
+    // call" that looks like a bug in your own components.
+    dedupe: ["react", "react-dom"],
+  },
   server: { port: 4200, strictPort: true },
   build: { outDir: "dist" },
 });

@@ -93,6 +93,22 @@ One page holding synth, mod and FX is a whole instrument; so is five. Pages are
 renameable, removable, and a block moves between them from its own inspector.
 Nothing about the catalogue assumes a particular page structure.
 
+## shadcn, on the generated tokens
+
+The app shell — title bar, activity rail, inspector, menus, tooltips — is
+shadcn/ui on Tailwind v4. It did not bring a palette with it: `@theme inline`
+in the generated stylesheet points every Tailwind colour at the akaVST
+variables, and shadcn's own `--sidebar-*` names are aliases onto them. A
+component dropped in by `npx shadcn@latest add` therefore arrives already
+wearing akaSTYLE, with nothing to restyle by hand.
+
+**The plugin face is not shadcn and must not become so.** Knobs, faders, choice
+boxes and every face in `design/faces.tsx` are hand-drawn ports of skeleton's
+`LookAndFeel`. The premise of the tool is that what you compose is what the
+plugin looks like, and a preview drawn in a slightly different dialect breaks
+that quietly. The line runs at the edge of the plugin window: outside it,
+shadcn; inside it, ports.
+
 ## Design tokens
 
 The palette is not defined here. `pnpm sync:tokens` reads
