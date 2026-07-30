@@ -204,6 +204,19 @@ export function useProject() {
     patchBlock,
     setSpan: (uid: string, span: number) => patchBlock(uid, (b) => ({ ...b, span }), true),
     setRows: (uid: string, rows: number) => patchBlock(uid, (b) => ({ ...b, rows }), true),
+
+    /**
+     * By a delta, computed from whatever the block is when the update runs.
+     *
+     * The keyboard needs this and an absolute setter cannot give it: React
+     * batches, so three arrow presses in one tick all read the same block and
+     * all write the same value. One press looked fine and three looked like
+     * one, which is the sort of bug you blame on the keyboard.
+     */
+    nudgeSpan: (uid: string, delta: number, min: number) =>
+      patchBlock(uid, (b) => ({ ...b, span: Math.max(min, Math.min(12, b.span + delta)) }), true),
+    nudgeRows: (uid: string, delta: number, min: number) =>
+      patchBlock(uid, (b) => ({ ...b, rows: Math.max(min, Math.min(64, b.rows + delta)) }), true),
     setBox: (uid: string, span: number, rows: number) => patchBlock(uid, (b) => ({ ...b, span, rows }), true),
     renameBlock: (uid: string, name: string) => patchBlock(uid, (b) => ({ ...b, name }), true),
 

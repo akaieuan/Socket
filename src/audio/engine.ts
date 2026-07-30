@@ -59,6 +59,22 @@ type Message =
 /** What the audio thread reports back, thirty times a second. */
 export type Status = { step: number; voices: number };
 
+/**
+ * What the audio device is asked for.
+ *
+ * All three need the context rebuilt — none of them can change on a running
+ * one — which is why Settings says so rather than pretending a knob turn is
+ * enough. Sample rate is a request: the device grants what it can, and the
+ * panel reports what it actually got.
+ */
+export type AudioOptions = {
+  sampleRate?: number;
+  latencyHint: AudioContextLatencyCategory;
+  sinkId?: string;
+};
+
+export const DEFAULT_OPTIONS: AudioOptions = { latencyHint: "interactive" };
+
 export class Audio {
   private ctx: AudioContext | null = null;
   private node: AudioWorkletNode | null = null;
@@ -67,7 +83,9 @@ export class Audio {
   private pending: Message[] = [];
   private onReady: (() => void) | null = null;
   private listeners = new Set<(s: Status) => void>();
+  private project: Project | null = null;
   status: Status = { step: -1, voices: 0 };
+  options: AudioOptions = { ...DEFAULT_OPTIONS };
 
   /** Browsers will not start an AudioContext without a gesture, so this is
       called from the first click rather than at mount. */
@@ -78,8 +96,21 @@ export class Audio {
     }
     this.onReady = onReady ?? null;
 
-    const ctx = new AudioContext({ latencyHint: "interactive" });
+    const ctx = new AudioContext({
+      latencyHint: this.options.latencyHint,
+      // Omitted rather than passed as undefined: some browsers treat the key
+      // being present as a request for whatever undefined coerces to.
+      ...(this.options.sampleRate ? { sampleRate: this.options.sampleRate } : {}),
+    });
     this.ctx = ctx;
+
+    if (this.options.sinkId && "setSinkId" in ctx) {
+      // Best effort. A device can vanish between being listed and being chosen,
+      // and failing to open the speakers you asked for is not a reason to have
+      // no sound at all.
+      try { await (ctx as AudioContext & { setSinkId(id: string): Promise<void> }).setSinkId(this.options.sinkId); }
+      catch { /* fall back to the default output */ }
+    }
 
     await ctx.audioWorklet.addModule("/engine/worklet.js");
 
@@ -133,6 +164,7 @@ export class Audio {
    * moment someone places a Reverb.
    */
   setProject(project: Project) {
+    this.project = project;
     const blocks = project.pages.flatMap((p) => p.blocks);
     this.send({ type: "blocks", types: blocks.map((b) => BLOCK_TYPE[b.type] ?? 0) });
     this.setChain(project);
@@ -200,6 +232,41 @@ export class Audio {
   noteOn(note: number, velocity = 0.9) { this.send({ type: "noteOn", note, velocity }); }
   noteOff(note: number) { this.send({ type: "noteOff", note }); }
   panic() { this.send({ type: "panic" }); }
+
+  /**
+   * Tear it down and build it again with new options.
+   *
+   * There is no other way: sample rate, latency and output device are all fixed
+   * for the life of an AudioContext. The project goes back across afterwards,
+   * so the only thing you lose is whatever was ringing.
+   */
+  async restart(options: Partial<AudioOptions>) {
+    this.options = { ...this.options, ...options };
+    const project = this.project;
+
+    if (this.ctx) {
+      const old = this.ctx;
+      this.ctx = null;
+      this.node = null;
+      this.analyser = null;
+      this.ready = false;
+      this.pending.length = 0;
+      await old.close().catch(() => {});
+    }
+
+    await this.start(() => { if (project) this.setProject(project); });
+  }
+
+  /** What the device actually gave us, which is not always what was asked. */
+  get actual() {
+    return {
+      sampleRate: this.ctx?.sampleRate ?? 0,
+      // Round-trip in milliseconds. The honest number to show, because the
+      // render quantum is always 128 frames and says nothing about the device.
+      latencyMs: this.ctx ? Math.round((this.ctx.baseLatency ?? 0) * 1000 * 10) / 10 : 0,
+      state: this.ctx?.state ?? "closed",
+    };
+  }
 
   /** The meters and screens read from here rather than from a stand-in. */
   getAnalyser() { return this.analyser; }

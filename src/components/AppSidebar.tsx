@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { CATALOG } from "@/model/catalog";
 import { PRESETS } from "@/model/presets";
+import { Settings } from "@/components/Settings";
 import { hasEngine } from "@/audio";
 import { GROUPS, type Group } from "@/model/types";
 import type { Store } from "@/model/useProject";
@@ -224,7 +225,9 @@ export function AppSidebar({
           </SidebarGroup>
         )}
         {pane === "settings" && (
-          <Placeholder title="Settings" note="Build targets, output folder, JUCE path." />
+          <SidebarGroup>
+            <Settings />
+          </SidebarGroup>
         )}
       </SidebarContent>
 
@@ -294,15 +297,5 @@ function ProjectSwitcher({ store }: { store: Store }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-/** Destinations that exist as shape before they exist as feature. */
-function Placeholder({ title, note }: { title: string; note: string }) {
-  return (
-    <SidebarGroup>
-      <p className="text-muted-foreground font-mono text-[10px] tracking-[0.16em] uppercase">{title}</p>
-      <p className="text-muted-foreground mt-2 text-[11px] leading-[1.5]">{note}</p>
-    </SidebarGroup>
   );
 }

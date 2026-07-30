@@ -135,6 +135,24 @@ starting point is supposed to save you.
 Written as a compact spec with parameters named rather than indexed, so a
 preset reads like a patch sheet and stays writable by hand.
 
+## Keyboard
+
+Everything about a panel was drag-only. Dragging is the right primary gesture —
+laying a panel out is the product — but it is a poor way to move something by
+one column, and no way at all to work without a precise pointer.
+
+    ← →        width, one column        ⌫ / Delete  remove
+    ↑ ↓        height, one row          Tab / ⇧Tab  next / previous block
+    ⇧← ⇧→      move in the layout order  Esc         deselect
+
+Arrows resize rather than move, because resizing is the finer adjustment and
+the one a drag is worst at: a row is eight pixels, and hitting that with a grip
+on a scaled-down window is luck.
+
+The store grows delta operations for this. React batches, so three arrow presses
+in one tick all read the same block and all write the same value — one press
+looked fine and three looked like one.
+
 ## Undo
 
 The whole project is one value and every operation is a pure transform over it,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useProject } from "@/model/useProject";
+import { useBlockKeys } from "@/model/useBlockKeys";
 import { AudioProvider, ProjectProvider, useAudio } from "@/audio";
 import { AppSidebar, type Pane } from "@/components/AppSidebar";
 import { Inspector } from "@/components/Inspector";
@@ -32,6 +33,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 export function App() {
   const store = useProject();
   const sound = useAudio(store.project);
+  useBlockKeys(store);
   const [view, setView] = useState<View>("layout");
   const [pane, setPane] = useState<Pane>("blocks");
   const [dragType, setDragType] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { audio, type Status } from "./engine";
+import { audio, type AudioOptions, type Status } from "./engine";
 import type { Project } from "@/model/types";
 import { routesFrom } from "./modulation";
 
@@ -149,6 +149,13 @@ export function useAudio(project: Project) {
       step: { active: boolean; note: number; velocity: number; gate: number },
     ) => audio.setStep(project, uid, index, step),
     panic: () => audio.panic(),
+    options: audio.options,
+    actual: audio.actual,
+    restart: async (next: Partial<AudioOptions>) => {
+      setRunning(false);
+      await audio.restart(next);
+      setRunning(true);
+    },
   };
 }
 
