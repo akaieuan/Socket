@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { BlockInstance, Face } from "@/model/types";
-import { useAudioContext, useProjectContext, modSources, modTargets } from "@/audio";
+import { useAudioContext, useProjectContext, modSources, modTargets, NUM_SOURCES, NUM_TARGETS } from "@/audio";
 
 /**
  * The faces — everything a block draws that is not a knob.
@@ -481,7 +481,9 @@ function Matrix({ block, onFace }: FaceProps) {
   // that the cable you want needs a block you have not placed.
   const sources = project ? modSources(project) : [];
   const targets = project ? modTargets(project) : [];
-  const rows = 6, cols = 6;
+  // Derived, not written twice: the destination list grew to seven when Scale
+  // and Glide arrived, and a literal here is exactly how that goes wrong.
+  const rows = NUM_SOURCES, cols = NUM_TARGETS;
   // Kept as the same source×destination grid the matrix used, so an existing
   // patch survives the change — the encoding was never the problem.
   const cells = useFaceState(block, rows * cols, () => 0);
@@ -887,6 +889,60 @@ function Keys({ block }: FaceProps) {
   );
 }
 
+/**
+ * The twelve semitones of a scale, as a keyboard that does not play.
+ *
+ * A Scale block's whole job is to say which notes are allowed, and every other
+ * way of showing that is a list of numbers. One octave rather than several,
+ * because the answer repeats — and the root is marked separately from the
+ * degrees, since the same set of intervals is a different scale depending on
+ * where it starts.
+ *
+ * Reads the masks the engine uses, not a copy of them, so a scale added in C++
+ * cannot end up drawn wrong here.
+ */
+const SCALE_MASKS = [
+  0b111111111111, 0b101010110101, 0b010110101101, 0b011010101101, 0b101011010101,
+  0b011010110101, 0b010101011011, 0b010110101001, 0b001010101101, 0b010011101001,
+  0b001010010101, 0b000110001101, 0b001010001101, 0b010001100011, 0b010101010101,
+  0b000110001011, 0b001001001001, 0b000010000001, 0b000000000001, 0b111111111111,
+];
+
+function Degrees({ block }: FaceProps) {
+  const root = pick(block, "root");
+  const scale = pick(block, "scale", 1);
+  const mask = SCALE_MASKS[scale] ?? SCALE_MASKS[0]!;
+  // In runs -1..1 over Range semitones; where it lands is what the block is
+  // currently emitting, and seeing that move is the difference between a
+  // diagram of a scale and a display.
+  const input = val(block, "in", 0.5) * 2 - 1;
+  const range = 1 + val(block, "range", 0.5) * 47;
+  const sounding = ((Math.round(input * range) % 12) + 12 + root) % 12;
+
+  return (
+    <div className="degrees">
+      {PITCH.map((name, i) => {
+        const inScale = (mask & (1 << ((i - root + 12) % 12))) !== 0;
+        const isRoot = i === root;
+        return (
+          <span
+            key={name}
+            className={
+              "degree" +
+              (BLACK.has(i) ? " sharp" : "") +
+              (inScale ? " in" : "") +
+              (isRoot ? " root" : "") +
+              (i === sounding && inScale ? " lit" : "")
+            }
+          >
+            {name}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Sixteen triggers. Latching, because a mock that forgets is worse than none. */
 function Pads({ block, onFace }: FaceProps) {
   const cols = [4, 8][pick(block, "cols")] ?? 4;
@@ -967,6 +1023,7 @@ export const FACES: Record<Face, (p: FaceProps) => ReactNode> = {
   steps: Steps,
   xy: XY,
   keys: Keys,
+  degrees: Degrees,
   pads: Pads,
   readout: Readout,
 };

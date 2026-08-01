@@ -43,5 +43,5 @@ export function useProjectContext(): Project | null {
   return useContext(ProjectCtx);
 }
 
-export { modSources, modTargets, routesFrom } from "./modulation";
+export { modSources, modTargets, routesFrom, NUM_SOURCES, NUM_TARGETS } from "./modulation";
 export type { ModSource, ModTarget } from "./modulation";

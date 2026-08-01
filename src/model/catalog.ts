@@ -34,9 +34,15 @@ const passive: BlockDef["ports"] = { audioIn: 0, audioOut: 0, modOut: false };
 export const CATALOG: BlockDef[] = [
   /* ── Source ───────────────────────────────────────────────────────── */
   {
+    // Sync is appended rather than slotted in beside Wave: parameters are
+    // addressed by index, so inserting one in the middle silently re-points
+    // every knob after it at the wrong thing.
     type: "osc", name: "Oscillator", group: "Source", from: "bleep · Oscillator.h",
-    ports: gen, defaultSpan: 4,
-    params: [choice("Wave", ["Saw", "Square", "Sine", "FM"]), knob("Tune"), knob("Fine"), knob("Level", 0.8), knob("PW")],
+    ports: gen, defaultSpan: 5,
+    params: [
+      choice("Wave", ["Saw", "Square", "Sine", "FM"]), knob("Tune"), knob("Fine"),
+      knob("Level", 0.8), knob("PW"), knob("Sync", 0),
+    ],
   },
   {
     type: "sub", name: "Sub", group: "Source", from: "bleep · Voice.cpp",
@@ -86,9 +92,15 @@ export const CATALOG: BlockDef[] = [
     params: [knob("Tune", 0.4), knob("Feedback", 0.5), mix()],
   },
   {
+    // Five named curves rather than one tanh with a knob on it. enzyme wrote
+    // them because "more drive" and "a different kind of drive" are different
+    // requests, and a single curve can only answer the first.
     type: "drive", name: "Character", group: "Shape", from: "enzyme · LoFiMangle.cpp",
-    ports: fx, defaultSpan: 4,
-    params: [knob("Drive", 0.4), knob("Bias"), knob("Tone", 0.5), mix(1)],
+    ports: fx, defaultSpan: 5,
+    params: [
+      choice("Type", ["PNP", "Tube", "Pickup", "Diode", "Crunch"]),
+      knob("Drive", 0.4), knob("Bias"), knob("Tone", 0.5), mix(1),
+    ],
   },
   {
     type: "fold", name: "Wavefolder", group: "Shape", from: "— not built",
@@ -101,6 +113,15 @@ export const CATALOG: BlockDef[] = [
     params: [knob("Bits", 0.8), knob("Rate", 0.9), knob("Jitter", 0.1), mix()],
   },
   {
+    // Its own block, though the Bitcrusher has a Rate knob, because bit depth
+    // and sample rate are unrelated damage: one quantises amplitude, the other
+    // time. enzyme fuses them in a fixed order and you cannot have the aliasing
+    // without the quantisation noise. Here you can.
+    type: "downsmp", name: "Downsample", group: "Shape", from: "enzyme · LoFiMangle.cpp",
+    ports: fx, defaultSpan: 3,
+    params: [knob("Rate", 0.15), knob("Smooth", 0), mix(1)],
+  },
+  {
     type: "eq", name: "EQ", group: "Shape", from: "— not built",
     ports: fx, defaultSpan: 5, face: "spectrum",
     params: [fader("Low"), fader("Lo mid"), fader("Hi mid"), fader("High")],
@@ -109,6 +130,15 @@ export const CATALOG: BlockDef[] = [
     type: "gate", name: "Gate", group: "Shape", from: "— not built",
     ports: fx, defaultSpan: 4,
     params: [knob("Thresh", 0.3), knob("Attack", 0.05), knob("Hold", 0.2), knob("Release", 0.3)],
+  },
+  {
+    // i4 spends this as a macro inside both Deform and Ring, where it biases
+    // gain across a band split. On its own it is a tilt EQ — one knob that
+    // takes the whole spectrum from dark to bright through flat, which is a
+    // more useful first move than four bands are.
+    type: "tilt", name: "Tilt", group: "Shape", from: "i4 · DeformEngine.cpp",
+    ports: fx, defaultSpan: 3,
+    params: [knob("Tilt"), knob("Pivot", 0.5), knob("Gain", 0.5)],
   },
 
   /* ── Modulate ─────────────────────────────────────────────────────── */
@@ -167,6 +197,44 @@ export const CATALOG: BlockDef[] = [
     type: "keytrack", name: "Key tracking", group: "Modulate", from: "— not built",
     ports: mod, defaultSpan: 3,
     params: [knob("Amount", 0.5), knob("Centre"), choice("Curve", ["Lin", "Exp"])],
+  },
+  {
+    // Three i4 engines depend on this and none of them presents it as a
+    // feature. On its own it is the most useful block here for someone who
+    // does not read music: patch it between anything and a pitch and wrong
+    // notes stop being possible.
+    // In is a real parameter, not a hidden signal port. That is what lets the
+    // patch bay reach it with the machinery it already has — a cable into
+    // Scale · In is the same kind of thing as a cable into Filter · Cutoff —
+    // and it means the block still does something with nothing patched, which
+    // a transformer with only a signal input never can.
+    type: "scale", name: "Scale", group: "Modulate", from: "i4 · ScaleQuantizer.h",
+    ports: mod, defaultSpan: 6, face: "degrees",
+    params: [
+      knob("In", 0.5),
+      choice("Root", ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]),
+      choice("Scale", [
+        "Chrom", "Major", "Minor", "Dorian", "Lydian", "Mixo", "S-Loc",
+        "Hex-A", "Hex-D", "Blues", "Pent", "Hira", "Kumoi",
+        "Iwato", "Whole", "Pelog", "Tetra", "Fifths", "Oct", "Free",
+      ], 1),
+      knob("Range", 0.5),
+      knob("Amount", 1),
+    ],
+  },
+  {
+    // Both plugins write this inline, twice, and neither exposes it. A held
+    // value with its own clock is half of what makes a modular sound modular.
+    type: "sh", name: "Sample & hold", group: "Modulate", from: "i4 + enzyme, written inline in both",
+    ports: mod, defaultSpan: 4,
+    params: [knob("Rate", 0.4), knob("Slew", 0), knob("Amount", 0.7), choice("Source", ["Noise", "Ramp", "Sine"])],
+  },
+  {
+    // i4's Tape hides this as `glideMs`. As a block it is a slew limiter, and
+    // it is the difference between a modulation that steps and one that moves.
+    type: "slew", name: "Glide", group: "Modulate", from: "i4 · TapeEngine.h",
+    ports: mod, defaultSpan: 4,
+    params: [knob("In", 0.5), knob("Time", 0.3), knob("Curve", 0.5), choice("Mode", ["Both", "Rise", "Fall"])],
   },
 
   /* ── Effect ───────────────────────────────────────────────────────── */
@@ -315,7 +383,7 @@ const FACE_ROWS: Record<string, number> = {
   screen: 5, scope: 4, spectrum: 4, curve: 4, meter: 4,
   // The grid plus its lane and pattern rows; and the patch bay needs room for
   // six jacks a side with cables between them, which a matrix of dots did not.
-  matrix: 9, steps: 8, xy: 6, keys: 4, pads: 5, readout: 4,
+  matrix: 9, steps: 8, xy: 6, keys: 4, pads: 5, readout: 4, degrees: 4,
 };
 
 /**

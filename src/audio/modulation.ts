@@ -12,9 +12,9 @@ import { IMPLEMENTED } from "./engine";
  * you can see.
  *
  * So both sides resolve against the project. Sources are the modulator blocks
- * you have placed, by name. Destinations stay a fixed vocabulary — the six
- * things a synth is nearly always modulating — but each one resolves to the
- * first block that can be that thing, and reports honestly when nothing can.
+ * you have placed, by name. Destinations stay a fixed vocabulary — the things a
+ * synth is nearly always modulating — but each one resolves to the first block
+ * that can be that thing, and reports honestly when nothing can.
  */
 
 /**
@@ -29,7 +29,7 @@ import { IMPLEMENTED } from "./engine";
  *
  * Same reason excludes Follower and Key tracking.
  */
-const MOD_SOURCES = ["lfo", "seq", "random", "xy", "macros", "arp"];
+const MOD_SOURCES = ["lfo", "seq", "random", "xy", "macros", "arp", "sh", "scale", "slew"];
 
 /**
  * A jack label has about six characters.
@@ -40,7 +40,11 @@ const MOD_SOURCES = ["lfo", "seq", "random", "xy", "macros", "arp"];
  */
 const SHORT: Record<string, string> = {
   lfo: "LFO", seq: "SEQ", random: "RND", xy: "XY", macros: "MACRO", arp: "ARP",
+  sh: "S&H", scale: "SCALE", slew: "GLIDE",
 };
+
+/** How many source jacks the patch bay draws. Six is the shape of the panel. */
+export const NUM_SOURCES = 6;
 
 export type ModSource = {
   /** Index in the flat block list — the engine's address. */
@@ -58,13 +62,19 @@ export type ModTarget = {
 };
 
 /**
- * The six destinations, in order of preference.
+ * The destinations, in order of preference.
  *
  * Each is a list of (block type, parameter label) pairs tried in turn, so
  * CUTOFF finds a Filter if you have one and a Comb if you do not. Falling back
  * rather than going dark is what makes the panel useful before the instrument
  * is finished — but it never invents a target, and a jack with nothing behind
  * it says so.
+ *
+ * SHAPE is the odd one and the reason there are seven. Scale and Glide do not
+ * generate a modulation, they transform one, so they are useless unless a cable
+ * can reach their input — and they are the first blocks that are a source and a
+ * destination at once. Everything above modulates a sound; this modulates
+ * another modulation.
  */
 const TARGETS: Array<{ name: string; tries: Array<[string, string]> }> = [
   { name: "PITCH",  tries: [["osc", "Tune"], ["wavetable", "Position"], ["fmop", "Ratio"], ["string", "Pitch"], ["sub", "Level"]] },
@@ -73,7 +83,11 @@ const TARGETS: Array<{ name: string; tries: Array<[string, string]> }> = [
   { name: "FOLD",   tries: [["fold", "Fold"], ["drive", "Drive"], ["crush", "Bits"], ["comb", "Feedback"]] },
   { name: "PAN",    tries: [["width", "Pan"], ["formant", "Width"], ["comb", "Mix"]] },
   { name: "SEND",   tries: [["delay", "Mix"], ["reverb", "Mix"], ["fxchain", "Mix"], ["drive", "Mix"]] },
+  { name: "SHAPE",  tries: [["scale", "In"], ["slew", "In"], ["downsmp", "Rate"], ["tilt", "Tilt"]] },
 ];
+
+/** How many destination jacks the patch bay draws. The grid is sources × this. */
+export const NUM_TARGETS = TARGETS.length;
 
 const flat = (project: Project): BlockInstance[] => project.pages.flatMap((p) => p.blocks);
 
@@ -83,7 +97,7 @@ export function modSources(project: Project): ModSource[] {
   const found: ModSource[] = [];
 
   blocks.forEach((b, i) => {
-    if (found.length >= 6 || !MOD_SOURCES.includes(b.type)) return;
+    if (found.length >= NUM_SOURCES || !MOD_SOURCES.includes(b.type)) return;
     const def = byType(b.type);
     const renamed = def && b.name !== def.name;
     const label = renamed ? b.name.toUpperCase().slice(0, 6) : (SHORT[b.type] ?? b.type.toUpperCase().slice(0, 6));
@@ -93,11 +107,11 @@ export function modSources(project: Project): ModSource[] {
   // Empty jacks rather than a short row: six is the shape of the panel, and a
   // patch bay that changes size as you add blocks is a patch bay you cannot
   // learn the position of.
-  while (found.length < 6) found.push({ block: -1, label: "—", live: false });
+  while (found.length < NUM_SOURCES) found.push({ block: -1, label: "—", live: false });
   return found;
 }
 
-/** The six destinations, resolved against what is actually in the project. */
+/** The destinations, resolved against what is actually in the project. */
 export function modTargets(project: Project): ModTarget[] {
   const blocks = flat(project);
 

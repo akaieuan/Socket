@@ -25,9 +25,10 @@ export const IMPLEMENTED = new Set([
   // Source
   "osc", "sub", "noise", "wavetable", "fmop", "string",
   // Shape
-  "filter", "formant", "comb", "drive", "fold", "crush", "eq", "gate",
+  "filter", "formant", "comb", "drive", "fold", "crush", "downsmp", "tilt", "eq", "gate",
   // Modulate
   "env", "env2", "lfo", "random", "follow", "seq", "arp", "keytrack",
+  "scale", "sh", "slew",
   // Effect
   "delay", "reverb", "chorus", "phaser", "flanger", "comp", "limiter",
   "tape", "grain", "ring", "width", "fxchain",

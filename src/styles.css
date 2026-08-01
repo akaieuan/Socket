@@ -612,6 +612,32 @@ button { font: inherit; color: inherit; }
 }
 .keys .key-w.on, .keys .key-b.on { background: var(--plugin-accent); }
 
+/* One octave of a scale. Twelve equal columns rather than a keyboard's
+   seven-and-five, because what is read here is membership — is this semitone
+   in or out — and a piano's geometry makes the black notes look like a lesser
+   kind of answer. */
+.degrees {
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px;
+  width: 100%; align-content: center;
+}
+.degrees .degree {
+  display: flex; align-items: center; justify-content: center;
+  height: clamp(20px, 3.6cqi, 38px);
+  font: 500 clamp(7px, 1.1cqi, 10px)/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  background: var(--mark-panel);
+  border: 1px solid var(--card-border); border-radius: 2px;
+  /* Out-of-scale degrees are dimmed, not hidden. A scale you cannot see the
+     gaps in is a list of notes; the gaps are the shape. */
+  opacity: 0.32;
+}
+.degrees .degree.in { opacity: 1; color: var(--foreground); background: var(--mark-screen); }
+.degrees .degree.root { border-color: var(--plugin-accent); color: var(--plugin-accent); }
+.degrees .degree.lit {
+  background: var(--plugin-accent); color: var(--card); border-color: var(--plugin-accent);
+}
+
 /* Fixed pad height rather than a square aspect: square pads in a fluid
    four-column grid grow with the panel, and a 4-wide panel gave a pad grid
    taller than the plugin window. */

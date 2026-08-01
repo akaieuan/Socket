@@ -37,7 +37,7 @@ export type Param = {
  */
 export type Face =
   | "screen" | "scope" | "spectrum" | "meter" | "curve"
-  | "matrix" | "steps" | "xy" | "keys" | "pads" | "readout";
+  | "matrix" | "steps" | "xy" | "keys" | "pads" | "readout" | "degrees";
 
 /** What a block accepts and produces. Empty means it is not in the audio path. */
 export type Ports = { audioIn: number; audioOut: number; modOut: boolean };

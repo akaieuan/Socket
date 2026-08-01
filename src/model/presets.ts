@@ -1,6 +1,7 @@
 import { instantiate } from "./project";
 import type { Accent, BlockInstance, Project } from "./types";
 import { SIZES } from "./types";
+import { NUM_SOURCES, NUM_TARGETS } from "@/audio/modulation";
 
 /**
  * Starting points.
@@ -287,10 +288,17 @@ function build(spec: PresetSpec): Project {
   };
 }
 
-/** Six sources by six destinations, source-major — the patch bay's encoding. */
+/**
+ * Six sources by however many destinations, source-major.
+ *
+ * The width is imported rather than written as a literal: a preset stores the
+ * pair, not the index, so adding a destination cannot silently move an existing
+ * cable — but only if both sides agree on the stride, and a 6 typed here would
+ * be the one place that stopped agreeing.
+ */
 function patchFace(cables: Array<[number, number]>): number[] {
-  const cells = new Array(36).fill(0);
-  for (const [src, dst] of cables) cells[src * 6 + dst] = 1;
+  const cells = new Array(NUM_SOURCES * NUM_TARGETS).fill(0);
+  for (const [src, dst] of cables) cells[src * NUM_TARGETS + dst] = 1;
   return cells;
 }
 
