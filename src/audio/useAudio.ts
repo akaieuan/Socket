@@ -38,6 +38,15 @@ export function useAudio(project: Project) {
   const octaveRef = useRef(octave);
   octaveRef.current = octave;
 
+  /**
+   * The notes physically down right now — not `held`, which is state.
+   *
+   * This is read inside a promise callback that can resolve after the key is
+   * already back up, and state read there is whatever it was when the closure
+   * was made. A ref is the only thing that answers "is it *still* down".
+   */
+  const downRef = useRef(new Set<number>());
+
   /** Structure: the list of blocks and their order. */
   const shape = project.pages
     .flatMap((p) => p.blocks)
@@ -87,6 +96,46 @@ export function useAudio(project: Project) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape, running]);
 
+  /**
+   * Start a note, and hold the note-off's right to cancel it.
+   *
+   * The first note of a session waits for an AudioContext and a worklet to
+   * load — long enough to press and release a key inside. `noteOff` runs
+   * synchronously and gets queued as pending, so it was being flushed *before*
+   * the note-on it was meant to cancel, and the note sounded forever. Checking
+   * that the key is still down at the moment the engine is finally ready is
+   * what makes release authoritative rather than a race.
+   */
+  const play = (note: number, velocity = 0.9) => {
+    downRef.current.add(note);
+    setHeld((h) => (h.includes(note) ? h : [...h, note]));
+    void start().then(() => {
+      if (downRef.current.has(note)) audio.noteOn(note, velocity);
+    });
+  };
+
+  const release = (note: number) => {
+    downRef.current.delete(note);
+    setHeld((h) => h.filter((n) => n !== note));
+    audio.noteOff(note);
+  };
+
+  const panic = () => {
+    downRef.current.clear();
+    setHeld([]);
+    audio.panic();
+  };
+
+  // The listeners below are registered once, so they must reach the *current*
+  // functions rather than the ones that existed on the first render — `play`
+  // closes over `start`, which closes over the project it will push across.
+  const playRef = useRef(play);
+  const releaseRef = useRef(release);
+  const panicRef = useRef(panic);
+  playRef.current = play;
+  releaseRef.current = release;
+  panicRef.current = panic;
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -96,30 +145,33 @@ export function useAudio(project: Project) {
 
       if (e.code === "KeyZ") { setOctave((o) => Math.max(0, o - 1)); return; }
       if (e.code === "KeyX") { setOctave((o) => Math.min(8, o + 1)); return; }
-      if (e.code === "Escape") { audio.panic(); setHeld([]); return; }
+      if (e.code === "Escape") { panicRef.current(); return; }
 
       const semitone = KEYS[e.code];
       if (semitone === undefined) return;
       e.preventDefault();
 
-      const note = 12 * octaveRef.current + 12 + semitone;
-      setHeld((h) => (h.includes(note) ? h : [...h, note]));
-      void start().then(() => audio.noteOn(note));
+      playRef.current(12 * octaveRef.current + 12 + semitone);
     };
 
     const up = (e: KeyboardEvent) => {
       const semitone = KEYS[e.code];
       if (semitone === undefined) return;
-      const note = 12 * octaveRef.current + 12 + semitone;
-      setHeld((h) => h.filter((n) => n !== note));
-      audio.noteOff(note);
+      releaseRef.current(12 * octaveRef.current + 12 + semitone);
     };
+
+    // A key can be released after the window loses focus, in which case the
+    // keyup never arrives here and the note is held forever. Blur is the only
+    // notice we get.
+    const blur = () => panicRef.current();
 
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
     };
   }, []);
 
@@ -141,14 +193,16 @@ export function useAudio(project: Project) {
     setOctave,
     held,
     start,
-    noteOn: (note: number, velocity = 0.9) => { void start().then(() => audio.noteOn(note, velocity)); },
-    noteOff: (note: number) => audio.noteOff(note),
+    // The same pair the computer keyboard uses, so the Keyboard face and a
+    // mouse-down that outlives the worklet load cannot diverge from it.
+    noteOn: play,
+    noteOff: release,
+    panic,
     setParam: (uid: string, paramId: string, value: number) => audio.setParam(project, uid, paramId, value),
     setStep: (
       uid: string, index: number,
       step: { active: boolean; note: number; velocity: number; gate: number },
     ) => audio.setStep(project, uid, index, step),
-    panic: () => audio.panic(),
     options: audio.options,
     actual: audio.actual,
     restart: async (next: Partial<AudioOptions>) => {
