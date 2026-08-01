@@ -14,6 +14,15 @@ import { chainOf } from "./chain";
 export { BLOCK_TYPE };
 
 /**
+ * Where this build's own files live.
+ *
+ * Vite substitutes it at build time and always ends it with a slash. It is `/`
+ * for the dev server and for Electron, and `/socket-test/` for the copy that
+ * sits under a path on the website.
+ */
+const BASE = import.meta.env.BASE_URL;
+
+/**
  * Blocks that make a sound today.
  *
  * Every block has a type number — the enum covers the whole catalogue so that
@@ -116,12 +125,16 @@ export class Audio {
       catch { /* fall back to the default output */ }
     }
 
-    await ctx.audioWorklet.addModule("/engine/worklet.js");
+    // Relative to the base the app was built for, not to the site root. Socket
+    // runs from three places — a dev server at /, a page nested under a path on
+    // the website, and file:// in Electron — and only the first of those makes
+    // a leading slash mean what you want.
+    await ctx.audioWorklet.addModule(`${BASE}engine/worklet.js`);
 
     // The worklet cannot fetch, so the module is read here and handed across as
     // source text — a worklet has no module loader either. The wasm is embedded
     // in it (SINGLE_FILE), so there is nothing else to carry.
-    const glue = await fetch("/engine/engine.js").then((r) => r.text());
+    const glue = await fetch(`${BASE}engine/engine.js`).then((r) => r.text());
 
     const node = new AudioWorkletNode(ctx, "aka-engine", {
       numberOfInputs: 0,

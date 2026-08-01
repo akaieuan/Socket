@@ -13,7 +13,9 @@
     "sync:tokens": "node --experimental-strip-types scripts/sync-tokens.mts",
     "verify": "pnpm typecheck && pnpm check:blocks && pnpm build",
     "sync:blocks": "node --experimental-strip-types scripts/sync-blocks.mts",
-    "check:blocks": "node --experimental-strip-types scripts/sync-blocks.mts --check"
+    "check:blocks": "node --experimental-strip-types scripts/sync-blocks.mts --check",
+    "build:web": "SOCKET_BASE=/socket-test/ vite build --outDir dist-web",
+    "deploy:web": "pnpm build:web && node --experimental-strip-types scripts/deploy-web.mts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

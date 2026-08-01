@@ -16,6 +16,16 @@ import tailwindcss from "@tailwindcss/vite";
  * CMake and actually build what it generates.
  */
 export default defineConfig({
+  /**
+   * Where the built app expects to be served from.
+   *
+   * Default `/` covers the dev server and a packaged Electron build. The web
+   * copy that sits under a path on akavst.com sets SOCKET_BASE, because every
+   * asset URL and both engine files resolve against it — a bundle built for the
+   * root and served from a subdirectory asks for /assets/… and gets the
+   * website's 404 page, which fails as a blank screen rather than as an error.
+   */
+  base: process.env.SOCKET_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
