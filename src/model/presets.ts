@@ -55,7 +55,7 @@ const SPECS: PresetSpec[] = [
     pages: [{
       name: "Synth",
       blocks: [
-        { type: "osc", params: { Wave: 0, Level: 0.8 } },
+        { type: "osc", params: { Wave: 2, Level: 0.8 } },
         { type: "filter", params: { Cutoff: 0.7, Reso: 0.2, Env: 0.6 } },
         { type: "env", params: { A: 0.05, D: 0.4, S: 0.6, R: 0.3 } },
         { type: "screen", params: { Mode: 2 } },
@@ -74,7 +74,7 @@ const SPECS: PresetSpec[] = [
     pages: [{
       name: "Bass",
       blocks: [
-        { type: "osc", params: { Wave: 0, Level: 0.7, Fine: 0.52 } },
+        { type: "osc", params: { Wave: 2, Level: 0.7, Fine: 0.52 } },
         { type: "sub", params: { Level: 0.8, Octave: 0, Shape: 0 } },
         { type: "filter", params: { Mode: 0, Cutoff: 0.32, Reso: 0.35, Env: 0.78 } },
         { type: "drive", params: { Drive: 0.35, Bias: 0.6, Tone: 0.35, Mix: 0.7 } },
@@ -95,7 +95,7 @@ const SPECS: PresetSpec[] = [
       {
         name: "Synth",
         blocks: [
-          { type: "osc", params: { Wave: 0, Level: 0.85 } },
+          { type: "osc", params: { Wave: 2, Level: 0.85 } },
           { type: "filter", params: { Mode: 1, Cutoff: 0.28, Reso: 0.85, Env: 0.7 } },
           { type: "env", params: { A: 0, D: 0.28, S: 0.1, R: 0.15, Curve: 0.25 } },
           { type: "screen", params: { Mode: 1, Rate: 0.7 } },
@@ -149,7 +149,7 @@ const SPECS: PresetSpec[] = [
     pages: [{
       name: "Synth",
       blocks: [
-        { type: "osc", name: "Osc A", params: { Wave: 0, Fine: 0.44, Level: 0.55 } },
+        { type: "osc", name: "Osc A", params: { Wave: 2, Fine: 0.44, Level: 0.55 } },
         { type: "osc", name: "Osc B", params: { Wave: 1, Fine: 0.58, Level: 0.45, PW: 0.4 } },
         { type: "filter", params: { Mode: 1, Cutoff: 0.55, Reso: 0.12, Env: 0.35, Key: 0.4 } },
         { type: "env", params: { A: 0.42, D: 0.6, S: 0.75, R: 0.62, Curve: 0.62 } },
@@ -189,9 +189,9 @@ const SPECS: PresetSpec[] = [
     pages: [{
       name: "Synth",
       blocks: [
-        { type: "wavetable", params: { Table: 0.34, Position: 0.4, Warp: 0.3, Level: 0.6 } },
-        { type: "noise", params: { Kind: 0.34, Level: 0.12, Colour: 0.3 } },
-        { type: "formant", params: { Vowel: 0.6, Morph: 0.35, Width: 0.5, Mix: 0.65 } },
+        { type: "wavetable", params: { Table: 1, Position: 0.4, Warp: 0.3, Level: 0.6 } },
+        { type: "noise", params: { Kind: 1, Level: 0.12, Colour: 0.3 } },
+        { type: "formant", params: { Vowel: 3, Morph: 0.35, Width: 0.5, Mix: 0.65 } },
         { type: "comb", params: { Tune: 0.32, Feedback: 0.62, Mix: 0.4 } },
         { type: "env", params: { A: 0.55, D: 0.5, S: 1, R: 0.7 } },
         { type: "reverb", params: { Size: 0.9, Decay: 0.85, Damp: 0.25, Width: 1, Mix: 0.5 } },

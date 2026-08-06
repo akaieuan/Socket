@@ -40,8 +40,12 @@ export const CATALOG: BlockDef[] = [
     type: "osc", name: "Oscillator", group: "Source", from: "bleep · Oscillator.h",
     ports: gen, defaultSpan: 5,
     params: [
-      choice("Wave", ["Saw", "Square", "Sine", "FM"]), knob("Tune"), knob("Fine"),
-      knob("Level", 0.8), knob("PW"), knob("Sync", 0),
+      // The order is Oscillator::Mode's, not a nicer one. The list used to read
+      // Saw/Square/Sine/FM against an enum of Sine/Triangle/Saw/Square/FM, so
+      // every label named the wrong wave and Triangle could not be chosen at
+      // all. A choice list is an address into C++, not a menu.
+      choice("Wave", ["Sine", "Tri", "Saw", "Square", "FM"], 2),
+      knob("Tune"), knob("Fine"), knob("Level", 0.8), knob("PW"), knob("Sync", 0),
     ],
   },
   {

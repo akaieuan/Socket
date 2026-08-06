@@ -23,6 +23,30 @@ export { BLOCK_TYPE };
 const BASE = import.meta.env.BASE_URL;
 
 /**
+ * A parameter as the engine wants it: always 0..1.
+ *
+ * The interface stores a choice as its raw index — the Inspector writes
+ * `Number(v)` and every face reads it back with `Math.round` — because an index
+ * is what a list of options is. The engines resolve one the other way, as a
+ * fraction of the option count: `(int)(v * (n - epsilon))`, which is the right
+ * shape for a plugin parameter because hosts automate 0..1 and nothing else.
+ *
+ * Both conventions are defensible and they were never reconciled, so every
+ * choice in the app was being read as an index far past the end of its own
+ * list. Measured: four of the Filter's five modes were the same filter, three
+ * of the Oscillator's four waves were a sine, and the Scale block resolved to
+ * "Free" — no quantisation at all — whichever scale you picked.
+ *
+ * Converted here, at the one boundary both paths cross, rather than by changing
+ * either side to speak the other's language.
+ */
+const forEngine = (spec: { kind: string; options?: string[] } | undefined, value: number) => {
+  if (spec?.kind !== "choice") return value;
+  const n = spec.options?.length ?? 0;
+  return n > 1 ? Math.min(1, Math.max(0, value / (n - 1))) : 0;
+};
+
+/**
  * Blocks that make a sound today.
  *
  * Every block has a type number — the enum covers the whole catalogue so that
@@ -193,7 +217,8 @@ export class Audio {
         // Catalogue order, not display order — the engine's switch is written
         // against the definition, and the UI is free to reorder what it shows.
         const index = def.params.findIndex((d) => p.id.startsWith(`${d.label.toLowerCase()}-`));
-        if (index >= 0) this.send({ type: "param", block: i, index, value: p.value });
+        if (index >= 0)
+          this.send({ type: "param", block: i, index, value: forEngine(def.params[index], p.value) });
       });
 
       // Face state goes with the structure, not only when the face is edited.
@@ -233,7 +258,8 @@ export class Audio {
     if (block < 0) return;
     const def = byType(blocks[block]!.type);
     const index = def?.params.findIndex((d) => paramId.startsWith(`${d.label.toLowerCase()}-`)) ?? -1;
-    if (index >= 0) this.send({ type: "param", block, index, value });
+    if (index >= 0)
+      this.send({ type: "param", block, index, value: forEngine(def?.params[index], value) });
   }
 
   /** Subscribe to the audio thread's status. Returns the unsubscribe. */
